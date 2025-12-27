@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>War Intelligence Command</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script defer src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    <style>
+        [x-cloak] { display: none !important; }
+        body { background: #0f172a; color: #e2e8f0; }
+        .glass { background: rgba(30, 41, 59, 0.7); backdrop-filter: blur(10px); border: 1px solid rgba(255,255,255,0.1); }
+        .enemy-card { border-left: 4px solid #ef4444; }
+        .ally-card { border-left: 4px solid #10b981; }
+    </style>
+</head>
+<body x-data="gameData()" x-init="init()">
+
+    <!-- Sidebar / Navigation -->
+    <div class="flex min-h-screen">
+        <aside class="w-64 glass p-6 flex flex-col gap-6">
+            <h1 class="text-2xl font-bold tracking-tighter text-blue-400">INTEL_CORE v1.0</h1>
+            
+            <nav class="space-y-2">
+                <button @click="view = 'dashboard'" :class="view === 'dashboard' ? 'bg-blue-600' : ''" class="w-full text-left p-3 rounded-lg transition hover:bg-slate-700">Dashboard</button>
+                <button @click="view = 'matchmaker'" :class="view === 'matchmaker' ? 'bg-blue-600' : ''" class="w-full text-left p-3 rounded-lg transition hover:bg-slate-700">Fair Matchmaker</button>
+                <button @click="view = 'admin'" :class="view === 'admin' ? 'bg-red-900' : ''" class="w-full text-left p-3 rounded-lg transition hover:bg-slate-700">Admin Terminal</button>
+            </nav>
+
+            <div class="mt-auto border-t border-slate-700 pt-4">
+                <label class="text-xs uppercase text-slate-500">Active Server</label>
+                <select x-model="selectedServer" class="w-full bg-slate-800 p-2 rounded mt-1">
+                    <template x-for="n in 4">
+                        <option :value="n" x-text="'Server ' + n"></option>
+                    </template>
+                </select>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="flex-1 p-8 overflow-y-auto">
+            
+            <!-- VIEW: DASHBOARD -->
+            <div x-show="view === 'dashboard'" x-cloak>
+                <div class="grid grid-cols-2 gap-8">
+                    <!-- Allies Column -->
+                    <div>
+                        <h2 class="text-xl font-bold mb-4 text-emerald-400">Allied Alliances</h2>
+                        <div class="space-y-4">
+                            <template x-for="alliance in getList('allies', 'alliances')">
+                                <div class="glass p-4 rounded-xl ally-card">
+                                    <div class="flex justify-between items-start">
+                                        <h3 class="font-bold text-lg" x-text="alliance.name"></h3>
+                                        <span class="text-xs text-emerald-500 font-mono" x-text="alliance.power.toLocaleString() + ' PWR'"></span>
+                                    </div>
+                                    <div class="mt-2 grid grid-cols-2 text-sm text-slate-400">
+                                        <div>Total Cu: <span class="text-white" x-text="alliance.copper.toLocaleString()"></span></div>
+                                        <div>Rate/Hr: <span class="text-amber-400" x-text="alliance.rate.toLocaleString()"></span></div>
+                                    </div>
+                                </div>
+                            </template>
+                        </div>
+                    </div>
+
+                    <!-- Enemy Column -->
+                    <div>
+                        <h2 class="text-xl font-bold mb-4 text-red-400">Enemy Alliances</h2>
+                        <div class="space-y-4">
+                            <template x-for="alliance in getList('enemies', 'alliances')">
+                                <div class="glass p-4 rounded-xl enemy-card">
+                                    <div class="flex justify-between items-start">
+                                        <h3 class="font-bold text-lg" x-text="alliance.name"></h3>
+                                        <span class="text-xs text-red-500 font-mono" x-text="alliance.power.toLocaleString() + ' PWR'"></span>
+                                    </div>
+                                    <div class="mt-2 grid grid-cols-2 text-sm text-slate-400">
+                                        <div>Total Cu: <span class="text-white" x-text="alliance.copper.toLocaleString()"></span></div>
+                                        <div>Rate/Hr: <span class="text-amber-400" x-text="alliance.rate.toLocaleString()"></span></div>
+                                    </div>
+                                </div>
+                            </template>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Top Players Section -->
+                <div class="mt-12">
+                    <h2 class="text-xl font-bold mb-4">Server Top 200 (Elite THP)</h2>
+                    <div class="glass rounded-xl overflow-hidden">
+                        <table class="w-full text-left">
+                            <thead class="bg-slate-800 text-slate-400 uppercase text-xs">
+                                <tr>
+                                    <th class="p-4">Rank</th>
+                                    <th class="p-4">Name</th>
+                                    <th class="p-4">Faction</th>
+                                    <th class="p-4">THP (Power)</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <template x-for="(player, index) in getTopPlayers()">
+                                    <tr class="border-t border-slate-700 hover:bg-slate-800/50">
+                                        <td class="p-4 text-slate-500" x-text="index + 1"></td>
+                                        <td class="p-4 font-bold" x-text="player.name"></td>
+                                        <td class="p-4">
+                                            <span :class="player.faction === 'allies' ? 'text-emerald-400' : 'text-red-400'" x-text="player.faction"></span>
+                                        </td>
+                                        <td class="p-4 font-mono text-blue-400" x-text="player.thp.toLocaleString()"></td>
+                                    </tr>
+                                </template>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- VIEW: MATCHMAKER -->
+            <div x-show="view === 'matchmaker'" x-cloak>
+                <h2 class="text-3xl font-bold mb-2">Fair Matchmaker</h2>
+                <p class="text-slate-400 mb-8">Matches Allied alliances with Enemies of similar power levels.</p>
+                
+                <div class="space-y-4">
+                    <template x-for="match in generateMatches()">
+                        <div class="flex items-center gap-4">
+                            <div class="flex-1 glass p-4 rounded-lg ally-card text-right">
+                                <div class="font-bold" x-text="match.ally.name"></div>
+                                <div class="text-sm text-slate-400" x-text="match.ally.power.toLocaleString() + ' PWR'"></div>
+                            </div>
+                            <div class="font-bold text-slate-600 italic">VS</div>
+                            <div class="flex-1 glass p-4 rounded-lg enemy-card">
+                                <div class="font-bold" x-text="match.enemy.name"></div>
+                                <div class="text-sm text-slate-400" x-text="match.enemy.power.toLocaleString() + ' PWR'"></div>
+                            </div>
+                        </div>
+                    </template>
+                </div>
+            </div>
+
+            <!-- VIEW: ADMIN -->
+            <div x-show="view === 'admin'" x-cloak>
+                <div class="max-w-xl glass p-8 rounded-2xl mx-auto">
+                    <h2 class="text-2xl font-bold mb-4">Admin Terminal</h2>
+                    <div x-show="!authenticated">
+                        <input type="password" x-model="passwordInput" placeholder="Enter Access Code" class="w-full bg-slate-900 border border-slate-700 p-3 rounded-lg mb-4">
+                        <button @click="login()" class="w-full bg-blue-600 p-3 rounded-lg font-bold">Authenticate</button>
+                    </div>
+                    
+                    <div x-show="authenticated" class="space-y-6">
+                        <div class="bg-blue-900/30 p-4 rounded-lg border border-blue-500 text-sm">
+                            Admin mode active. You can export the current data to a file. To save permanently, commit the exported <strong>data.json</strong> to your GitHub repository.
+                        </div>
+                        
+                        <button @click="exportData()" class="w-full bg-emerald-600 p-3 rounded-lg font-bold">Export data.json</button>
+                        
+                        <div class="border-t border-slate-700 pt-6">
+                            <label class="block mb-2 font-bold">Import Data</label>
+                            <input type="file" @change="importData" class="text-sm text-slate-400">
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        function gameData() {
+            return {
+                view: 'dashboard',
+                selectedServer: 1,
+                authenticated: false,
+                passwordInput: '',
+                masterPassword: 'KING', // Change this!
+                db: {
+                    allies: { s1: { alliances: [], players: [] }, s2: { alliances: [], players: [] }, s3: { alliances: [], players: [] }, s4: { alliances: [], players: [] } },
+                    enemies: { s1: { alliances: [], players: [] }, s2: { alliances: [], players: [] }, s3: { alliances: [], players: [] }, s4: { alliances: [], players: [] } }
+                },
+
+                async init() {
+                    // Cache busting: fetch newest data.json
+                    try {
+                        const resp = await fetch(`data.json?t=${Date.now()}`);
+                        if (resp.ok) {
+                            this.db = await resp.json();
+                        }
+                    } catch (e) {
+                        console.log("No data.json found, using defaults");
+                    }
+                },
+
+                login() {
+                    if (this.passwordInput === this.masterPassword) this.authenticated = true;
+                    else alert("Access Denied");
+                },
+
+                getList(faction, type) {
+                    const serverKey = 's' + this.selectedServer;
+                    return this.db[faction][serverKey][type] || [];
+                },
+
+                getTopPlayers() {
+                    const s = 's' + this.selectedServer;
+                    let p = [];
+                    this.db.allies[s].players.forEach(i => p.push({...i, faction: 'allies'}));
+                    this.db.enemies[s].players.forEach(i => p.push({...i, faction: 'enemies'}));
+                    return p.sort((a,b) => b.thp - a.thp).slice(0, 200);
+                },
+
+                generateMatches() {
+                    const s = 's' + this.selectedServer;
+                    const allies = [...this.db.allies[s].alliances].sort((a,b) => b.power - a.power);
+                    const enemies = [...this.db.enemies[s].alliances].sort((a,b) => b.power - a.power);
+                    
+                    return allies.map((ally, index) => ({
+                        ally: ally,
+                        enemy: enemies[index] || { name: 'N/A', power: 0 }
+                    }));
+                },
+
+                exportData() {
+                    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(this.db));
+                    const downloadAnchorNode = document.createElement('a');
+                    downloadAnchorNode.setAttribute("href", dataStr);
+                    downloadAnchorNode.setAttribute("download", "data.json");
+                    document.body.appendChild(downloadAnchorNode);
+                    downloadAnchorNode.click();
+                    downloadAnchorNode.remove();
+                },
+
+                importData(event) {
+                    const file = event.target.files[0];
+                    const reader = new FileReader();
+                    reader.onload = (e) => {
+                        this.db = JSON.parse(e.target.result);
+                        alert("Data loaded! Review then export if you made changes.");
+                    };
+                    reader.readAsText(file);
+                }
+            }
+        }
+    </script>
+</body>
+</html>
