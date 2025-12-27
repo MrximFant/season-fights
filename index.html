@@ -13,7 +13,6 @@
         .glass { background: rgba(15, 23, 42, 0.8); backdrop-filter: blur(12px); border: 1px solid rgba(51, 65, 85, 0.5); }
         .enemy-row { border-left: 4px solid #ef4444; }
         .ally-row { border-left: 4px solid #10b981; }
-        .scrollbar-hide::-webkit-scrollbar { display: none; }
     </style>
 </head>
 <body x-data="warRoom()" x-init="init()">
@@ -26,117 +25,106 @@
                 <p class="text-[10px] text-slate-500 font-mono tracking-widest uppercase">Targeting & Matchmaking</p>
             </div>
 
-            <!-- Global Selectors -->
             <div class="space-y-4">
-                <div>
-                    <label class="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Your Alliance</label>
-                    <select x-model="myAllianceName" class="w-full bg-slate-900 border border-slate-700 p-3 rounded-xl mt-1 text-white text-sm focus:ring-2 focus:ring-cyan-500 outline-none transition-all">
-                        <option value="">-- Choose Your Alliance --</option>
-                        <template x-for="a in alliances">
-                            <option :value="a['Alliance Name']" x-text="`[${parseServer(a.Server)}] ${a['Alliance Name']}`"></option>
-                        </template>
-                    </select>
-                </div>
+                <template x-if="alliances.length > 0">
+                    <div>
+                        <label class="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Your Alliance</label>
+                        <select x-model="myAllianceName" class="w-full bg-slate-900 border border-slate-700 p-3 rounded-xl mt-1 text-white text-sm focus:ring-2 focus:ring-cyan-500 outline-none">
+                            <option value="">-- Choose Your Alliance --</option>
+                            <template x-for="a in alliances">
+                                <option :value="a.AllianceName" x-text="`[S${a.Server}] ${a.AllianceName}`"></option>
+                            </template>
+                        </select>
+                    </div>
+                </template>
 
                 <nav class="flex flex-col gap-2 pt-4">
-                    <button @click="tab = 'alliances'" :class="tab === 'alliances' ? 'bg-cyan-600 shadow-lg shadow-cyan-900/20 text-white' : 'text-slate-400 hover:bg-slate-800'" class="w-full text-left px-4 py-3 rounded-xl transition-all font-bold text-xs uppercase tracking-wider">Alliance Matchups</button>
-                    <button @click="tab = 'players'" :class="tab === 'players' ? 'bg-cyan-600 shadow-lg shadow-cyan-900/20 text-white' : 'text-slate-400 hover:bg-slate-800'" class="w-full text-left px-4 py-3 rounded-xl transition-all font-bold text-xs uppercase tracking-wider">Elite Player Intel</button>
+                    <button @click="tab = 'alliances'" :class="tab === 'alliances' ? 'bg-cyan-600 text-white' : 'text-slate-400 hover:bg-slate-800'" class="w-full text-left px-4 py-3 rounded-xl transition-all font-bold text-xs uppercase tracking-wider">Alliance Matchups</button>
+                    <button @click="tab = 'players'" :class="tab === 'players' ? 'bg-cyan-600 text-white' : 'text-slate-400 hover:bg-slate-800'" class="w-full text-left px-4 py-3 rounded-xl transition-all font-bold text-xs uppercase tracking-wider">Elite Player Intel</button>
                 </nav>
             </div>
 
-            <!-- Stats Summary -->
-            <template x-if="myAlliance">
-                <div class="mt-4 p-4 rounded-2xl bg-cyan-500/10 border border-cyan-500/20">
-                    <div class="text-[10px] text-cyan-500 font-bold uppercase">My Alliance Power</div>
-                    <div class="text-2xl font-black text-white" x-text="formatNum(myAlliance['Total Power'])"></div>
-                </div>
-            </template>
-
             <div class="mt-auto border-t border-slate-800 pt-4 flex flex-col gap-2">
                 <div class="flex justify-between text-[10px] text-slate-500 font-mono">
-                    <span>STATUS: LIVE</span>
-                    <span x-text="alliances.length + ' DATA ROWS'"></span>
+                    <span x-text="loading ? 'SYNCING...' : 'STATUS: LIVE'"></span>
+                    <span x-text="alliances.length + ' ALLIANCES'"></span>
                 </div>
-                <button @click="fetchData()" class="w-full py-3 text-[10px] font-bold bg-slate-800 hover:bg-slate-700 rounded-xl text-slate-300 transition-colors uppercase tracking-widest">Sync Force (No-Cache)</button>
+                <button @click="fetchData()" class="w-full py-3 text-[10px] font-bold bg-slate-800 hover:bg-slate-700 rounded-xl text-slate-300 transition-colors uppercase tracking-widest">Refresh Data</button>
             </div>
         </aside>
 
         <!-- Main Content -->
-        <main class="flex-1 overflow-y-auto p-8 scrollbar-hide">
+        <main class="flex-1 overflow-y-auto p-8">
             
-            <!-- VIEW: ALLIANCE MATCHUPS -->
-            <div x-show="tab === 'alliances'" x-cloak x-transition>
-                <div class="mb-8">
-                    <h2 class="text-4xl font-black uppercase italic">Warzone Matchmaker</h2>
-                    <p class="text-slate-400 text-sm">Sorted by Total Power. Select your alliance to see difficulty ratings.</p>
-                </div>
-
-                <div class="grid grid-cols-1 gap-3">
-                    <template x-for="a in sortedAlliances">
-                        <div class="glass p-5 rounded-2xl flex items-center justify-between border border-slate-800 hover:border-slate-600 transition-all group">
-                            <div class="flex items-center gap-6">
-                                <div class="w-14 h-14 rounded-xl bg-slate-900 flex flex-col items-center justify-center border border-slate-700 group-hover:border-cyan-500 transition-colors">
-                                    <span class="text-[9px] font-bold text-slate-500 uppercase">Server</span>
-                                    <span class="text-xs font-black text-cyan-500" x-text="parseServer(a.Server)"></span>
-                                </div>
-                                <div>
-                                    <h3 class="text-xl font-bold text-white group-hover:text-cyan-400 transition-colors" x-text="a['Alliance Name']"></h3>
-                                    <span class="text-[10px] bg-slate-800 text-slate-400 px-2 py-0.5 rounded uppercase font-bold tracking-tighter" x-text="a.Faction || 'Unknown'"></span>
-                                </div>
-                            </div>
-
-                            <div class="flex items-center gap-12">
-                                <template x-if="myAlliance && a['Alliance Name'] !== myAllianceName">
-                                    <div class="text-right">
-                                        <div class="text-[10px] text-slate-500 uppercase font-bold mb-1">Match Grade</div>
-                                        <div :class="getMatchColor(a)" class="text-sm font-black px-3 py-1 rounded-lg bg-slate-900/50" x-text="calculateMatch(a)"></div>
-                                    </div>
-                                </template>
-
-                                <div class="text-right min-w-[100px]">
-                                    <div class="text-[10px] text-slate-500 uppercase font-bold mb-1">Total Power</div>
-                                    <div class="text-xl font-mono font-black text-white" x-text="formatNum(a['Total Power'])"></div>
-                                </div>
-                            </div>
-                        </div>
-                    </template>
-                </div>
+            <!-- Loading State -->
+            <div x-show="loading" class="flex items-center justify-center h-full text-cyan-500 font-mono italic">
+                SYSTEM_LOADING_DATA...
             </div>
 
-            <!-- VIEW: ELITE PLAYERS -->
-            <div x-show="tab === 'players'" x-cloak x-transition>
-                <div class="mb-8">
-                    <h2 class="text-4xl font-black uppercase italic">Top 200 Elite Intel</h2>
-                    <p class="text-slate-400 text-sm">Ranked by Total Hero Power (THP)</p>
+            <div x-show="!loading" x-cloak>
+                <!-- VIEW: ALLIANCE MATCHUPS -->
+                <div x-show="tab === 'alliances'">
+                    <div class="mb-8">
+                        <h2 class="text-4xl font-black uppercase italic">Warzone Matchmaker</h2>
+                    </div>
+
+                    <div class="grid grid-cols-1 gap-3">
+                        <template x-for="a in sortedAlliances">
+                            <div class="glass p-5 rounded-2xl flex items-center justify-between border border-slate-800">
+                                <div class="flex items-center gap-6">
+                                    <div class="w-14 h-14 rounded-xl bg-slate-900 flex flex-col items-center justify-center border border-slate-700">
+                                        <span class="text-[9px] font-bold text-slate-500 uppercase">Server</span>
+                                        <span class="text-xs font-black text-cyan-500" x-text="a.Server"></span>
+                                    </div>
+                                    <div>
+                                        <h3 class="text-xl font-bold text-white" x-text="a.AllianceName"></h3>
+                                        <span class="text-[10px] bg-slate-800 text-slate-400 px-2 py-0.5 rounded uppercase font-bold" x-text="a.Faction"></span>
+                                    </div>
+                                </div>
+                                <div class="flex items-center gap-12 text-right">
+                                    <template x-if="myAllianceName && a.AllianceName !== myAllianceName">
+                                        <div>
+                                            <div class="text-[10px] text-slate-500 uppercase font-bold mb-1">Match</div>
+                                            <div :class="getMatchColor(a)" class="text-sm font-black" x-text="calculateMatch(a)"></div>
+                                        </div>
+                                    </template>
+                                    <div>
+                                        <div class="text-[10px] text-slate-500 uppercase font-bold mb-1">Total Power</div>
+                                        <div class="text-xl font-mono font-black text-white" x-text="formatNum(a.TotalPower)"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </template>
+                    </div>
                 </div>
 
-                <div class="glass rounded-3xl overflow-hidden shadow-2xl border border-slate-800">
-                    <table class="w-full text-left border-collapse">
-                        <thead>
-                            <tr class="bg-slate-900/80 text-slate-500 text-[10px] uppercase tracking-widest border-b border-slate-800">
-                                <th class="p-5">Rank</th>
-                                <th class="p-5">Elite Player</th>
-                                <th class="p-5">Alliance</th>
-                                <th class="p-5">Server</th>
-                                <th class="p-5 text-right">Hero Power (THP)</th>
-                            </tr>
-                        </thead>
-                        <tbody class="divide-y divide-slate-800/50">
-                            <template x-for="(p, index) in topPlayers">
-                                <tr class="hover:bg-cyan-500/5 transition-colors group">
-                                    <td class="p-5 text-slate-600 font-mono text-xs" x-text="index + 1"></td>
-                                    <td class="p-5 font-bold text-slate-200 text-lg" x-text="p['Player Name']"></td>
-                                    <td class="p-5">
-                                        <span class="text-sm text-slate-400" x-text="p['Alliance Name']"></span>
-                                    </td>
-                                    <td class="p-5">
-                                        <span class="px-2 py-1 rounded-md bg-slate-900 text-[10px] text-slate-400 border border-slate-700" x-text="parseServer(p.Server)"></span>
-                                    </td>
-                                    <td class="p-5 text-right font-mono text-cyan-400 font-black text-lg" x-text="formatNum(p['THP'])"></td>
+                <!-- VIEW: ELITE PLAYERS -->
+                <div x-show="tab === 'players'">
+                    <div class="mb-8">
+                        <h2 class="text-4xl font-black uppercase italic">Top 200 Elite Intel</h2>
+                    </div>
+                    <div class="glass rounded-3xl overflow-hidden shadow-2xl border border-slate-800">
+                        <table class="w-full text-left">
+                            <thead class="bg-slate-900/80 text-slate-500 text-[10px] uppercase border-b border-slate-800">
+                                <tr>
+                                    <th class="p-5">Rank</th>
+                                    <th class="p-5">Elite Player</th>
+                                    <th class="p-5">Alliance</th>
+                                    <th class="p-5 text-right">Hero Power (THP)</th>
                                 </tr>
-                            </template>
-                        </tbody>
-                    </table>
+                            </thead>
+                            <tbody class="divide-y divide-slate-800/50">
+                                <template x-for="(p, index) in topPlayers">
+                                    <tr class="hover:bg-cyan-500/5 transition-colors">
+                                        <td class="p-5 text-slate-600 font-mono text-xs" x-text="index + 1"></td>
+                                        <td class="p-5 font-bold text-slate-200" x-text="p.PlayerName"></td>
+                                        <td class="p-5 text-sm text-slate-400" x-text="p.AllianceName"></td>
+                                        <td class="p-5 text-right font-mono text-cyan-400 font-black text-lg" x-text="formatNum(p.THP)"></td>
+                                    </tr>
+                                </template>
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
             </div>
         </main>
@@ -146,84 +134,96 @@
         function warRoom() {
             return {
                 tab: 'alliances',
-                sheetAlliancesURL: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRFfdDzrMXgqdjSZrSI4YcbDvFoYlrri87EEhG2I9aecW2xcuuLFcl-sxEVjvY1LTdPkXjKSzlwoNQd/pub?gid=0&single=true&output=csv',
-                sheetPlayersURL: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRFfdDzrMXgqdjSZrSI4YcbDvFoYlrri87EEhG2I9aecW2xcuuLFcl-sxEVjvY1LTdPkXjKSzlwoNQd/pub?gid=1007829300&single=true&output=csv',
-                
+                loading: true,
                 alliances: [],
                 players: [],
                 myAllianceName: '',
+                
+                // URLs
+                sheetAlliancesURL: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRFfdDzrMXgqdjSZrSI4YcbDvFoYlrri87EEhG2I9aecW2xcuuLFcl-sxEVjvY1LTdPkXjKSzlwoNQd/pub?gid=0&output=csv',
+                sheetPlayersURL: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRFfdDzrMXgqdjSZrSI4YcbDvFoYlrri87EEhG2I9aecW2xcuuLFcl-sxEVjvY1LTdPkXjKSzlwoNQd/pub?gid=1007829300&output=csv',
 
-                async init() {
-                    await this.fetchData();
+                init() {
+                    this.fetchData();
                 },
 
                 async fetchData() {
-                    const cacheBuster = `&cb=${Date.now()}`;
+                    this.loading = true;
+                    const cb = `&cb=${Date.now()}`;
                     
-                    // Fetch Alliances
-                    Papa.parse(this.sheetAlliancesURL + cacheBuster, {
-                        download: true, header: true, skipEmptyLines: true,
-                        complete: (res) => { this.alliances = res.data; }
+                    // Helper to normalize data keys
+                    const normalizeData = (data) => {
+                        return data.map(row => {
+                            const newRow = {};
+                            for (let key in row) {
+                                // Removes spaces and weird characters from column names
+                                const cleanKey = key.trim().replace(/\s+/g, '');
+                                newRow[cleanKey] = row[key];
+                            }
+                            // Specific fix for "Warzone #968" -> "968"
+                            if (newRow.Server && newRow.Server.includes('#')) {
+                                newRow.Server = newRow.Server.split('#')[1];
+                            }
+                            return newRow;
+                        });
+                    };
+
+                    // Parse Alliances
+                    Papa.parse(this.sheetAlliancesURL + cb, {
+                        download: true,
+                        header: true,
+                        skipEmptyLines: true,
+                        complete: (res) => {
+                            this.alliances = normalizeData(res.data);
+                            console.log("Alliances Loaded:", this.alliances);
+                        }
                     });
 
-                    // Fetch Players
-                    Papa.parse(this.sheetPlayersURL + cacheBuster, {
-                        download: true, header: true, skipEmptyLines: true,
-                        complete: (res) => { this.players = res.data; }
+                    // Parse Players
+                    Papa.parse(this.sheetPlayersURL + cb, {
+                        download: true,
+                        header: true,
+                        skipEmptyLines: true,
+                        complete: (res) => {
+                            this.players = normalizeData(res.data);
+                            console.log("Players Loaded:", this.players);
+                            this.loading = false;
+                        }
                     });
                 },
 
-                // Clean and format numbers: 17380386797 -> 17.38B
                 formatNum(val) {
                     if (!val) return '0';
                     let num = Number(val.toString().replace(/[^0-9]/g, ''));
                     if (num >= 1_000_000_000) return (num / 1_000_000_000).toFixed(2) + 'B';
                     if (num >= 1_000_000) return (num / 1_000_000).toFixed(1) + 'M';
-                    if (num >= 1_000) return (num / 1_000).toFixed(1) + 'K';
                     return num.toLocaleString();
                 },
 
-                // Parse "Warzone #968" -> "968"
-                parseServer(val) {
-                    if (!val) return '???';
-                    return val.includes('#') ? val.split('#')[1] : val;
-                },
-
-                get myAlliance() {
-                    return this.alliances.find(a => a['Alliance Name'] === this.myAllianceName);
-                },
-
                 get sortedAlliances() {
-                    // Sorting by Power Descending
-                    return [...this.alliances].sort((a, b) => {
-                        return Number(b['Total Power']) - Number(a['Total Power']);
-                    });
+                    return [...this.alliances].sort((a, b) => Number(b.TotalPower) - Number(a.TotalPower));
                 },
 
                 get topPlayers() {
-                    // Sort by THP Descending
-                    return [...this.players].sort((a, b) => {
-                        return Number(b['THP']) - Number(a['THP']);
-                    }).slice(0, 200);
+                    return [...this.players].sort((a, b) => Number(b.THP) - Number(a.THP)).slice(0, 200);
+                },
+
+                get myAlliance() {
+                    return this.alliances.find(a => a.AllianceName === this.myAllianceName);
                 },
 
                 calculateMatch(enemy) {
                     if (!this.myAlliance) return '';
-                    const myP = Number(this.myAlliance['Total Power']);
-                    const enP = Number(enemy['Total Power']);
-                    const ratio = enP / myP;
-
-                    if (ratio > 1.4) return 'DANGER: OVERPOWERED';
-                    if (ratio > 1.1) return 'DIFFICULT';
-                    if (ratio < 0.7) return 'EASY TARGET';
-                    return 'FAIR MATCH';
+                    const ratio = Number(enemy.TotalPower) / Number(this.myAlliance.TotalPower);
+                    if (ratio > 1.3) return 'HARD';
+                    if (ratio < 0.8) return 'EASY';
+                    return 'FAIR';
                 },
 
                 getMatchColor(enemy) {
                     const res = this.calculateMatch(enemy);
-                    if (res.includes('DANGER')) return 'text-red-500';
-                    if (res.includes('DIFFICULT')) return 'text-orange-500';
-                    if (res.includes('EASY')) return 'text-emerald-500';
+                    if (res === 'HARD') return 'text-red-500';
+                    if (res === 'EASY') return 'text-emerald-500';
                     return 'text-cyan-400';
                 }
             }
