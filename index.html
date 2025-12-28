@@ -232,7 +232,56 @@
                     </div>
                 </div>
 
-                <!-- VIEW 3: ADMIN (Omitted for brevity, assume same as v12.1) -->
+                <!-- VIEW 3: ADMIN CONSOLE -->
+<div x-show="tab === 'admin'" x-cloak class="max-w-2xl mx-auto mt-10 pb-20">
+    <!-- Login Screen -->
+    <div x-show="!authenticated" class="glass p-12 rounded-3xl text-center border border-slate-800">
+        <h2 class="text-2xl font-black mb-6 uppercase tracking-widest italic text-red-500 leading-none">Terminal Authentication</h2>
+        <input type="password" x-model="passInput" placeholder="Enter Password" 
+               class="w-full bg-slate-950 border border-slate-800 p-4 rounded-2xl mb-4 text-center text-white outline-none focus:ring-2 focus:ring-red-500">
+        <button @click="login()" class="w-full py-4 bg-red-600 rounded-2xl font-black uppercase tracking-widest shadow-lg hover:bg-red-500 transition-all">
+            Unlock Terminal
+        </button>
+    </div>
+
+    <!-- Authenticated Panel -->
+    <div x-show="authenticated" class="space-y-6">
+        <div class="glass p-8 rounded-3xl border border-cyan-500/30 shadow-2xl">
+            <h3 class="text-xl font-black uppercase text-cyan-400 italic mb-4 text-center tracking-widest leading-none">City Occupation Editor</h3>
+            
+            <select x-model="editTag" class="w-full bg-slate-950 p-4 rounded-xl border border-slate-800 text-white mb-6 outline-none focus:ring-2 focus:ring-cyan-500">
+                <option value="">Select Alliance to Edit...</option>
+                <template x-for="a in alliances.sort((a,b) => a.name.localeCompare(b.name))">
+                    <option :value="a.tag" x-text="`[${a.tag}] ${a.name}`"></option>
+                </template>
+            </select>
+
+            <template x-if="editTag">
+                <div class="grid grid-cols-1 gap-3">
+                    <template x-for="n in 6">
+                        <div class="bg-slate-900/50 p-4 rounded-2xl flex justify-between items-center border border-slate-800">
+                            <span class="text-xs font-black uppercase text-slate-400" x-text="'City Lvl ' + n"></span>
+                            <div class="flex items-center gap-6">
+                                <button @click="updateCity(n, -1)" class="w-10 h-10 bg-slate-800 rounded font-bold text-xl hover:bg-red-500 transition-colors">-</button>
+                                <span class="text-2xl font-black text-cyan-400 w-8 text-center" x-text="getCityCount(n)"></span>
+                                <button @click="updateCity(n, 1)" class="w-10 h-10 bg-slate-800 rounded font-bold text-xl hover:bg-emerald-500 transition-colors">+</button>
+                            </div>
+                        </div>
+                    </template>
+                    <div class="p-4 bg-black/40 rounded-xl text-center text-[10px] text-slate-500 uppercase tracking-widest font-black" 
+                         x-text="'Slots Used: ' + getTotalCities() + ' / 6'"></div>
+                </div>
+            </template>
+
+            <div class="mt-8 pt-8 border-t border-slate-800 flex flex-col gap-4 text-center">
+                <div class="text-[10px] font-black text-amber-500 uppercase italic">Modified this session: <span class="text-white" x-text="modifiedTags.length"></span></div>
+                <button @click="exportCities()" class="w-full py-4 bg-emerald-600 hover:bg-emerald-500 rounded-2xl font-black uppercase text-xs shadow-lg transition-all">
+                    Export Updated Cities (CSV)
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
 
             </div>
         </main>
