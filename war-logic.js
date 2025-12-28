@@ -2,6 +2,7 @@ window.warRoom = function() {
     return {
         // --- STATE ---
         tab: 'warroom', loading: true, mobileMenu: false, searchQuery: '', debugStatus: 'Ready',
+        refSearch: '', // NEW: Search term for the reference dropdown
         week: 1, round1Reset: '', currentPhase: '', phaseAction: '', phaseCountdown: '', currentRoundText: '',
         alliances: [], players: [], history: [], cities: [], openAlliances: [], openServers: [],
         authenticated: false, passInput: '', editTag: '', modifiedTags: [], myAllianceName: '',
@@ -9,7 +10,7 @@ window.warRoom = function() {
         // --- INIT ---
         init() {
             this.myAllianceName = localStorage.getItem('war_ref_alliance') || '';
-            this.round1Reset = localStorage.getItem('war_round1_reset') || ''; // Stores YYYY-MM-DDTHH:MM
+            this.round1Reset = localStorage.getItem('war_round1_reset') || '';
             this.fetchData();
             setInterval(() => this.updateClock(), 1000);
         },
@@ -22,28 +23,18 @@ window.warRoom = function() {
         // --- CALENDAR LOGIC ---
         updateClock() {
             const now = new Date();
-            const day = now.getDay(); // 0-Sun, 1-Mon...
-            
+            const day = now.getDay();
             if (this.round1Reset) {
                 const start = new Date(this.round1Reset);
                 if (!isNaN(start)) {
                     const diffMs = now - start;
                     const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-                    // Week calculation (1-4)
                     this.week = Math.max(1, Math.min(4, Math.floor(diffDays / 7) + 1));
-                    
-                    // Round calculation (1-8)
-                    // First half of week (Mon-Wed) = Round 1, 3, 5, 7
-                    // Second half (Thu-Sun) = Round 2, 4, 6, 8
                     const isSecondHalf = (now.getUTCDay() >= 4 || now.getUTCDay() === 0);
                     const roundNum = ((this.week - 1) * 2) + (isSecondHalf ? 2 : 1);
                     this.currentRoundText = `Round ${roundNum}`;
                 }
-            } else {
-                this.currentRoundText = "Round -";
             }
-
-            // Phase Logic (Standard CET based on your schedule)
             const hr = now.getHours();
             const d = now.getDay();
             if (d === 1 || d === 4) { this.currentPhase = "Grouping Phase"; this.phaseAction = "Brackets forming."; }
@@ -54,7 +45,6 @@ window.warRoom = function() {
                 else if (hr < 14) { this.currentPhase = "WAR ACTIVE"; this.phaseAction = "Warehouses -> Center."; }
                 else { this.currentPhase = "Cooling Down"; this.phaseAction = "Analyzing results."; }
             } else { this.currentPhase = "Rest Time"; this.phaseAction = "Prepare for next round."; }
-            
             this.phaseCountdown = now.toLocaleTimeString();
         },
 
@@ -65,25 +55,23 @@ window.warRoom = function() {
             const base = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRFfdDzrMXgqdjSZrSI4YcbDvFoYlrri87EEhG2I9aecW2xcuuLFcl-sxEVjvY1LTdPkXjKSzlwoNQd/pub?output=csv&gid=';
             const scrub = (d) => d.map(r => { let c = {}; Object.keys(r).forEach(k => c[k.trim().toLowerCase().replace(/\s+/g,'')] = r[k] ? String(r[k]).trim() : ''); return c; });
             const fetchCSV = async (gid) => { try { const r = await fetch(base + gid + cb); const t = await r.text(); return scrub(Papa.parse(t, {header:true, skipEmptyLines:true}).data); } catch (e) { return []; } };
-            
             const [rawA, rawP, rawC, rawH] = await Promise.all([fetchCSV('0'), fetchCSV('1007829300'), fetchCSV('1860064624'), fetchCSV('1091133615')]);
-            
-            const mapF = (f) => {
-                if (!f) return 'Unassigned';
-                const low = f.toLowerCase();
-                if (low.includes('kage') || low.includes('red')) return 'Kage no Sato';
-                if (low.includes('koubu') || low.includes('blue')) return 'Koubutai';
-                return 'Unassigned';
-            };
-
+            const mapF = (f) => { if (!f) return 'Unassigned'; const l = f.toLowerCase(); if (l.includes('kage') || l.includes('red')) return 'Kage no Sato'; if (l.includes('koubu') || l.includes('blue')) return 'Koubutai'; return 'Unassigned'; };
             this.alliances = rawA.map(r => ({ faction: mapF(r.faction), server: r.server, tag: r.tag, name: r.alliancename, power: Number(r.totalpower.replace(/\D/g,'')) || 0 })).filter(r => r.tag);
             this.players = rawP.map(r => ({ tag: r.tag, name: r.playername, thp: Number(r.thp.replace(/\D/g,'')) || 0 })).filter(r => r.name);
             this.cities = rawC; this.history = rawH;
             this.loading = false;
-            this.debugStatus = `OK: ${this.alliances.length}A, ${this.players.length}P`;
+            this.debugStatus = `OK: ${this.alliances.length}A Sync'd`;
         },
 
-        // --- GETTERS ---
+        // --- GETTERS & SEARCH ---
+        get filteredRefList() {
+            const list = [...this.alliances].sort((a,b) => a.name.localeCompare(b.name));
+            if (!this.refSearch) return list;
+            const q = this.refSearch.toLowerCase();
+            return list.filter(a => a.tag.toLowerCase().includes(q) || a.name.toLowerCase().includes(q));
+        },
+
         get factionData() {
             return this.alliances.map(a => {
                 const snps = this.history.filter(x => x.tag.toLowerCase() === a.tag.toLowerCase()).sort((a,b) => new Date(b.timestamp) - new Date(a.timestamp));
