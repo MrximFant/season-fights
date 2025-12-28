@@ -14,24 +14,29 @@
         .enemy-card { border-left: 5px solid #ef4444 !important; }
         .ally-card { border-left: 5px solid #10b981 !important; }
         .tag-badge { background: rgba(6, 182, 212, 0.1); color: #22d3ee; padding: 2px 8px; border-radius: 4px; font-weight: 900; font-family: monospace; border: 1px solid rgba(6, 182, 212, 0.3); }
+        .sort-header { cursor: pointer; }
+        .sort-header:hover { color: #22d3ee; }
     </style>
 </head>
 <body x-data="warRoom()" x-init="init()">
 
     <div class="flex h-screen overflow-hidden">
         <!-- Sidebar -->
-        <aside class="w-80 glass p-6 flex flex-col gap-6 shadow-2xl border-r border-slate-800 z-50 overflow-y-auto">
-            <h1 class="text-3xl font-black tracking-tighter text-cyan-500 italic uppercase underline decoration-cyan-900">War Intel</h1>
-            
+        <aside class="w-80 glass p-6 flex flex-col gap-6 shadow-2xl border-r border-slate-800 z-50">
+            <div>
+                <h1 class="text-3xl font-black tracking-tighter text-cyan-500 italic uppercase leading-none">War Intel</h1>
+                <p class="text-[10px] text-slate-500 font-mono tracking-widest uppercase mt-1 italic">Tactical Map v6.0</p>
+            </div>
+
             <nav class="flex flex-col gap-2">
-                <button @click="tab = 'alliances'" :class="tab === 'alliances' ? 'bg-cyan-600 text-white shadow-lg' : 'text-slate-400'" class="w-full text-left px-4 py-3 rounded-xl font-bold text-xs uppercase italic">1. Force Strengths</button>
-                <button @click="tab = 'players'" :class="tab === 'players' ? 'bg-cyan-600 text-white' : 'text-slate-400'" class="w-full text-left px-4 py-3 rounded-xl font-bold text-xs uppercase italic">2. Elite Players</button>
-                <button @click="tab = 'warmap'" :class="tab === 'warmap' ? 'bg-amber-600 text-white shadow-lg' : 'text-slate-400'" class="w-full text-left px-4 py-3 rounded-xl font-bold text-xs uppercase italic tracking-widest">3. War Map (Loot)</button>
+                <button @click="tab = 'warmap'" :class="tab === 'warmap' ? 'bg-amber-600 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-800'" class="w-full text-left px-4 py-3 rounded-xl transition-all font-bold text-xs uppercase italic tracking-widest">1. War Map (Loot)</button>
+                <button @click="tab = 'alliances'" :class="tab === 'alliances' ? 'bg-cyan-600 text-white' : 'text-slate-400 hover:bg-slate-800'" class="w-full text-left px-4 py-3 rounded-xl transition-all font-bold text-xs uppercase italic tracking-widest">2. Forces</button>
+                <button @click="tab = 'players'" :class="tab === 'players' ? 'bg-cyan-600 text-white' : 'text-slate-400 hover:bg-slate-800'" class="w-full text-left px-4 py-3 rounded-xl transition-all font-bold text-xs uppercase italic tracking-widest">3. Elite Intel</button>
             </nav>
 
             <div class="pt-4 border-t border-slate-800">
-                <label class="text-[10px] font-bold text-slate-500 uppercase italic">My Reference Alliance</label>
-                <select x-model="myAllianceName" class="w-full bg-slate-900 border border-slate-700 p-3 rounded-xl mt-1 text-white text-sm outline-none">
+                <label class="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1 block">Reference Alliance</label>
+                <select x-model="myAllianceName" class="w-full bg-slate-900 border border-slate-700 p-3 rounded-xl text-white text-sm outline-none">
                     <option value="">-- Choose Alliance --</option>
                     <template x-for="a in alliances.filter(i => i.faction === 'Ally')">
                         <option :value="a.name" x-text="`[${a.tag}] ${a.name}`"></option>
@@ -39,76 +44,71 @@
                 </select>
             </div>
 
-            <!-- AI Snapshot Helper -->
-            <div class="p-4 bg-slate-900/50 rounded-2xl border border-slate-800">
-                <h4 class="text-[10px] font-bold text-amber-500 uppercase mb-2 italic">Screenshot AI Prompt</h4>
-                <p class="text-[9px] text-slate-400 leading-tight mb-2">Use this to get data for the <strong>CopperHistory</strong> tab.</p>
-                <div class="bg-black p-2 rounded text-[9px] font-mono text-emerald-500 select-all cursor-pointer">
-                    Extract Tag, Name, Total Copper, and Timestamp (HH:MM). Output as: Tag, Name, Copper, Time
-                </div>
-            </div>
-
-            <div class="mt-auto">
-                <button @click="fetchData()" class="w-full py-2 bg-slate-800 text-slate-500 text-[10px] font-bold uppercase rounded-lg underline">Sync Global Intel</button>
+            <div class="mt-auto flex flex-col gap-2">
+                <button @click="fetchData()" class="w-full py-3 bg-slate-800 hover:bg-slate-700 rounded-xl text-slate-400 text-[10px] font-bold uppercase underline tracking-widest">Sync Battlefield</button>
             </div>
         </aside>
 
-        <!-- Main Content -->
-        <main class="flex-1 overflow-y-auto p-8">
+        <!-- Main -->
+        <main class="flex-1 overflow-y-auto p-8 scrollbar-hide">
             <template x-if="loading">
-                <div class="flex items-center justify-center h-full text-cyan-500 font-mono animate-pulse uppercase italic tracking-widest">Synchronizing_Battlefield_Data...</div>
+                <div class="flex items-center justify-center h-full text-cyan-500 font-mono animate-pulse uppercase tracking-widest italic text-xl">Initializing_Combat_Systems...</div>
             </template>
 
             <div x-show="!loading" x-cloak>
                 
-                <!-- WAR MAP VIEW -->
+                <!-- WAR MAP VIEW (LOOT & PERFORMANCE) -->
                 <div x-show="tab === 'warmap'">
-                    <header class="mb-8 border-b border-slate-800 pb-4">
-                        <h2 class="text-4xl font-black uppercase italic text-amber-500">The War Map</h2>
-                        <p class="text-slate-400 text-sm">Target selection based on loot value and combat performance.</p>
+                    <header class="mb-8 border-b border-slate-800 pb-4 flex justify-between items-end">
+                        <div>
+                            <h2 class="text-4xl font-black uppercase italic text-amber-500 tracking-tight">Economic Targets</h2>
+                            <p class="text-slate-400 text-sm mt-1">Real-time wealth tracking and combat delta analysis.</p>
+                        </div>
                     </header>
 
                     <div class="grid grid-cols-1 gap-6">
-                        <template x-for="target in warTargets">
-                            <div class="glass p-6 rounded-3xl border border-slate-800 flex flex-col gap-6 transition-all hover:scale-[1.01]"
-                                 :class="target.battleDelta < 0 ? 'border-red-500/50' : (target.battleDelta > 0 ? 'border-emerald-500/50' : '')">
+                        <template x-for="t in warTargets">
+                            <div class="glass p-6 rounded-3xl border border-slate-800 flex flex-col gap-6" 
+                                 :class="t.combatSignal < 0 ? 'border-red-500/30' : (t.combatSignal > 0 ? 'border-emerald-500/30' : '')">
                                 
                                 <div class="flex justify-between items-start">
-                                    <div class="flex items-center gap-4">
+                                    <div class="flex items-center gap-6">
                                         <div class="text-center bg-slate-950 p-3 rounded-2xl border border-slate-800">
-                                            <div class="text-[8px] text-slate-500 uppercase font-bold tracking-widest">Server</div>
-                                            <div class="text-xl font-black text-cyan-400" x-text="target.server"></div>
+                                            <div class="text-[8px] text-slate-500 font-bold uppercase">Server</div>
+                                            <div class="text-xl font-black text-cyan-400 font-mono" x-text="t.server"></div>
                                         </div>
                                         <div>
                                             <div class="flex items-center gap-3">
-                                                <span class="tag-badge" x-text="target.tag"></span>
-                                                <h3 class="text-2xl font-black text-white uppercase italic" x-text="target.name"></h3>
+                                                <span class="tag-badge" x-text="t.tag"></span>
+                                                <h4 class="text-2xl font-black text-white uppercase italic" x-text="t.name"></h4>
                                             </div>
                                             <div class="flex gap-4 mt-1">
-                                                <span class="text-[10px] text-slate-500 font-bold uppercase" x-text="'Power: ' + formatNum(target.power)"></span>
-                                                <span class="text-[10px] font-bold uppercase" :class="getMatchColor(target)" x-text="calculateMatch(target)"></span>
+                                                <span class="text-[10px] text-slate-500 font-bold uppercase" x-text="'Power: ' + formatPower(t.power)"></span>
+                                                <template x-if="myAlliance">
+                                                    <span class="text-[10px] font-bold uppercase" :class="getMatchColor(t)" x-text="calculateMatch(t)"></span>
+                                                </template>
                                             </div>
                                         </div>
                                     </div>
                                     <div class="text-right">
-                                        <div class="text-[10px] text-amber-500 font-bold uppercase tracking-widest">Current Lootable Stash</div>
-                                        <div class="text-3xl font-black text-white font-mono" x-text="formatNum(target.currentStash)"></div>
+                                        <div class="text-[10px] text-amber-500 font-bold uppercase tracking-widest">Current Copper Stash</div>
+                                        <div class="text-4xl font-black text-white font-mono" x-text="formatNum(t.currentStash)"></div>
                                     </div>
                                 </div>
 
-                                <!-- Combat Analysis -->
                                 <div class="grid grid-cols-3 gap-4 border-t border-slate-800 pt-4">
-                                    <div class="bg-black/40 p-3 rounded-xl">
-                                        <div class="text-[9px] text-slate-500 uppercase font-bold">Passive Rate (Cities)</div>
-                                        <div class="text-lg font-black text-amber-500" x-text="formatNum(target.cityRate) + '/h'"></div>
+                                    <div class="bg-black/20 p-4 rounded-2xl">
+                                        <div class="text-[9px] text-slate-500 font-bold uppercase mb-1">Passive City Production</div>
+                                        <div class="text-xl font-black text-amber-500 font-mono" x-text="formatNum(t.passiveRate) + '/h'"></div>
                                     </div>
-                                    <div class="bg-black/40 p-3 rounded-xl col-span-2">
-                                        <div class="text-[9px] text-slate-500 uppercase font-bold">Combat Performance (Last Scan)</div>
-                                        <div class="flex items-center gap-2">
-                                            <div class="text-lg font-black" :class="target.battleDelta < 0 ? 'text-red-500' : 'text-emerald-500'" 
-                                                 x-text="(target.battleDelta > 0 ? '+' : '') + formatNum(target.battleDelta)"></div>
-                                            <span class="text-[10px] font-bold text-slate-500 italic" 
-                                                  x-text="target.battleDelta < 0 ? 'BEING FARMED' : 'WINNING FIGHTS'"></span>
+                                    <div class="bg-black/20 p-4 rounded-2xl col-span-2">
+                                        <div class="text-[9px] text-slate-500 font-bold uppercase mb-1">Combat Performance (Delta)</div>
+                                        <div class="flex items-center gap-4">
+                                            <div class="text-2xl font-black font-mono" :class="t.combatSignal < 0 ? 'text-red-500' : 'text-emerald-500'" 
+                                                 x-text="(t.combatSignal > 0 ? '+' : '') + formatNum(t.combatSignal)"></div>
+                                            <span class="text-[10px] font-bold px-2 py-1 rounded bg-slate-900 border border-slate-700"
+                                                  :class="t.combatSignal < 0 ? 'text-red-400' : 'text-emerald-400'"
+                                                  x-text="t.combatSignal < 0 ? 'BEING FARMED' : 'GAINING IN BATTLE'"></span>
                                         </div>
                                     </div>
                                 </div>
@@ -117,7 +117,8 @@
                     </div>
                 </div>
 
-                <!-- ALLIANCE/PLAYER VIEWS... (Keep previous tab logic) -->
+                <!-- ALLIANCE/PLAYER VIEWS... (Keep your existing working logic) -->
+
             </div>
         </main>
     </div>
@@ -128,63 +129,96 @@
                 tab: 'warmap', loading: true, search: '', myAllianceName: '',
                 alliances: [], players: [], cities: [], history: [],
                 
-                sheetAlliancesURL: '...', sheetPlayersURL: '...',
-                sheetCitiesURL: '...', // Point to Tab 3
-                sheetHistoryURL: '...', // Point to Tab 4
+                sheetAlliancesURL: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRFfdDzrMXgqdjSZrSI4YcbDvFoYlrri87EEhG2I9aecW2xcuuLFcl-sxEVjvY1LTdPkXjKSzlwoNQd/pub?gid=0&output=csv',
+                sheetPlayersURL: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRFfdDzrMXgqdjSZrSI4YcbDvFoYlrri87EEhG2I9aecW2xcuuLFcl-sxEVjvY1LTdPkXjKSzlwoNQd/pub?gid=1007829300&output=csv',
+                sheetCitiesURL: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRFfdDzrMXgqdjSZrSI4YcbDvFoYlrri87EEhG2I9aecW2xcuuLFcl-sxEVjvY1LTdPkXjKSzlwoNQd/pub?gid=1860064624&output=csv',
+                sheetHistoryURL: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRFfdDzrMXgqdjSZrSI4YcbDvFoYlrri87EEhG2I9aecW2xcuuLFcl-sxEVjvY1LTdPkXjKSzlwoNQd/pub?gid=1091133615&output=csv',
 
                 init() { this.fetchData(); },
 
-                fetchData() {
+                async fetchData() {
                     this.loading = true;
                     const cb = `&t=${Date.now()}`;
-                    // Fetch all 4 tabs using PapaParse...
-                    // ... [Same mapping logic used previously] ...
+                    
+                    try {
+                        const [resA, resP, resC, resH] = await Promise.all([
+                            fetch(this.sheetAlliancesURL + cb).then(r => r.text()),
+                            fetch(this.sheetPlayersURL + cb).then(r => r.text()),
+                            fetch(this.sheetCitiesURL + cb).then(r => r.text()),
+                            fetch(this.sheetHistoryURL + cb).then(r => r.text())
+                        ]);
+
+                        this.alliances = Papa.parse(resA, {header:true}).data.map(r => ({...r, tag: r.Tag, faction: r.Faction, name: r['Alliance Name'], power: r['Total Power']})).filter(r => r.tag);
+                        this.players = Papa.parse(resP, {header:true}).data.filter(r => r['Player Name']);
+                        this.cities = Papa.parse(resC, {header:true}).data.filter(r => r.Tag);
+                        this.history = Papa.parse(resH, {header:true}).data.filter(r => r.Tag);
+                    } catch (e) { console.error("Sync Failed", e); }
+                    
                     this.loading = false;
                 },
 
                 get warTargets() {
-                    return this.history.reduce((acc, entry) => {
-                        // Find latest 2 snapshots for this alliance
-                        const snapshots = this.history
-                            .filter(h => h.Tag === entry.Tag)
-                            .sort((a,b) => new Date(b.Timestamp) - new Date(a.Timestamp));
-                        
-                        if (acc.find(x => x.tag === entry.Tag)) return acc;
+                    // Unique tags from History
+                    const uniqueTags = [...new Set(this.history.map(h => h.Tag))];
 
-                        const alliance = this.alliances.find(a => a.tag === entry.Tag) || {};
-                        const cityData = this.cities.find(c => c.Tag === entry.Tag) || {};
+                    return uniqueTags.map(tag => {
+                        const snapshots = this.history.filter(h => h.Tag === tag).sort((a,b) => new Date(b.Timestamp) - new Date(a.Timestamp));
+                        const latest = snapshots[0];
+                        const alliance = this.alliances.find(a => a.tag === tag) || {};
+                        const cityData = this.cities.find(c => c.Tag === tag) || {};
 
-                        // Calculate Passive Rate
-                        const cityRate = (Number(cityData.L1||0)*100) + (Number(cityData.L2||0)*200) + 
-                                         (Number(cityData.L3||0)*300) + (Number(cityData.L4||0)*400) + 
-                                         (Number(cityData.L5||0)*500) + (Number(cityData.L6||0)*600);
+                        // 1. Passive Rate
+                        const passiveRate = (Number(cityData.L1||0)*100) + (Number(cityData.L2||0)*200) + (Number(cityData.L3||0)*300) + (Number(cityData.L4||0)*400) + (Number(cityData.L5||0)*500) + (Number(cityData.L6||0)*600);
 
-                        let battleDelta = 0;
+                        // 2. Combat Signal (Delta)
+                        let combatSignal = 0;
                         if (snapshots.length >= 2) {
-                            const latest = snapshots[0];
                             const prev = snapshots[1];
                             const hourDiff = (new Date(latest.Timestamp) - new Date(prev.Timestamp)) / 36e5;
                             const actualChange = Number(latest.TotalCopper) - Number(prev.TotalCopper);
-                            const expectedChange = cityRate * hourDiff;
-                            battleDelta = Math.round(actualChange - expectedChange);
+                            const expectedChange = passiveRate * hourDiff;
+                            combatSignal = Math.round(actualChange - expectedChange);
                         }
 
-                        acc.push({
-                            tag: entry.Tag,
-                            name: entry['Alliance Name'],
-                            server: alliance.server || '???',
+                        return {
+                            tag: tag,
+                            name: latest['Alliance Name'],
+                            server: alliance.Server || '???',
                             power: alliance.power || 0,
-                            currentStash: snapshots[0].TotalCopper,
-                            cityRate: cityRate,
-                            battleDelta: battleDelta
-                        });
-                        return acc;
-                    }, []).sort((a,b) => b.currentStash - a.currentStash);
+                            faction: alliance.faction || 'Enemy',
+                            currentStash: latest.TotalCopper,
+                            passiveRate: passiveRate,
+                            combatSignal: combatSignal,
+                            uid: tag
+                        };
+                    }).sort((a,b) => b.currentStash - a.currentStash);
                 },
 
-                formatNum(val) { /* same */ },
-                getMatchColor(target) { /* same */ },
-                calculateMatch(target) { /* same */ }
+                get myAlliance() { return this.alliances.find(a => a.name === this.myAllianceName); },
+
+                formatPower(val) {
+                    if (!val) return '0';
+                    let num = Number(val.toString().replace(/\D/g,''));
+                    if (num >= 1000000000) return (num/1000000000).toFixed(2) + 'B';
+                    return (num/1000000).toFixed(1) + 'M';
+                },
+
+                formatNum(val) { return Number(val || 0).toLocaleString(); },
+
+                calculateMatch(target) {
+                    if (!this.myAlliance) return '';
+                    const ratio = Number(target.power.toString().replace(/\D/g,'')) / Number(this.myAlliance.power.toString().replace(/\D/g,''));
+                    if (ratio > 1.3) return '🔴 DANGER';
+                    if (ratio < 0.7) return '🟢 EASY';
+                    return '🔵 FAIR';
+                },
+
+                getMatchColor(target) {
+                    const res = this.calculateMatch(target);
+                    if (res.includes('DANGER')) return 'text-red-500';
+                    if (res.includes('EASY')) return 'text-emerald-500';
+                    return 'text-cyan-400';
+                }
             }
         }
     </script>
