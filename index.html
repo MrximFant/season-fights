@@ -35,14 +35,14 @@
         <aside :class="mobileMenu ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'" 
                class="fixed lg:relative w-80 h-full glass p-6 flex flex-col gap-6 shadow-2xl border-r border-slate-800 z-[110] transition-transform duration-300 scrollbar-hide overflow-y-auto">
             
-            <!-- WAR CLOCK -->
+            <!-- LIVE SEASON TRACKER -->
             <div class="p-4 bg-slate-900 border border-amber-500/30 rounded-2xl shadow-lg">
-                <div class="flex justify-between items-center mb-1 text-[10px] font-black text-amber-500 uppercase italic">
-                    <span x-text="currentRound"></span>
+                <div class="flex justify-between items-center mb-1 text-[10px] font-black text-amber-500 uppercase tracking-widest italic">
+                    <span x-text="'Season ' + currentRoundText"></span>
                     <span class="w-2 h-2 rounded-full bg-red-500 animate-ping"></span>
                 </div>
                 <div class="text-xs font-black text-white uppercase mb-1" x-text="currentPhase"></div>
-                <div class="text-[9px] text-slate-500 uppercase font-bold leading-tight mb-3" x-text="phaseAction"></div>
+                <div class="text-[9px] text-slate-500 uppercase font-bold leading-tight mb-3 italic" x-text="phaseAction"></div>
                 <div class="text-2xl font-mono font-black text-amber-400 text-center border-t border-slate-800 pt-2" x-text="phaseCountdown"></div>
             </div>
 
@@ -52,17 +52,25 @@
                 <button @click="tab = 'admin'; mobileMenu = false" :class="tab === 'admin' ? 'bg-red-600 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-800'" class="w-full text-left px-4 py-3 rounded-xl font-bold text-xs uppercase italic tracking-widest transition-all text-center">Admin console</button>
             </nav>
 
-            <!-- SEARCH / REF ALLIANCE -->
+            <!-- PERSISTENT SETTINGS -->
             <div class="pt-4 border-t border-slate-800 space-y-4">
                 <input type="text" x-model="searchQuery" placeholder="Quick Search Tag/Name..." class="w-full bg-slate-900 border border-slate-700 p-3 rounded-xl text-xs outline-none focus:ring-2 focus:ring-cyan-500">
                 
                 <div>
-                    <label class="text-[10px] font-bold text-slate-500 uppercase">My Reference Alliance</label>
+                    <label class="text-[10px] font-bold text-slate-500 uppercase tracking-widest">My Alliance</label>
                     <select x-model="myAllianceName" @change="saveSettings()" class="w-full bg-slate-900 border border-slate-700 p-2 rounded-lg text-white text-xs outline-none mt-1">
                         <option value="">-- Choose --</option>
                         <template x-for="a in alliances.sort((a,b) => a.name.localeCompare(b.name))">
                             <option :value="a.name" x-text="`[${a.tag}] ${a.name}`"></option>
                         </template>
+                    </select>
+                </div>
+                <div>
+                    <label class="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Active Week</label>
+                    <select x-model="week" @change="saveSettings()" class="w-full bg-slate-900 border border-slate-700 p-2 rounded-lg text-white text-xs outline-none mt-1">
+                        <option value="1">Week 1 (Group 1-10)</option>
+                        <option value="2">Week 2 (Group 1-6)</option>
+                        <option value="3">Week 3/4 (Group 1-3)</option>
                     </select>
                 </div>
             </div>
@@ -83,82 +91,88 @@
                 
                 <!-- VIEW 1: DECLARATION HUB -->
                 <div x-show="tab === 'warroom'">
-                    <template x-if="knsGroups.length === 0 && kbtGroups.length === 0">
-                        <div class="glass p-12 rounded-3xl border border-amber-500/20 text-center space-y-4">
-                            <h3 class="text-2xl font-black text-amber-500 uppercase italic">Waiting for Faction Data</h3>
-                            <p class="text-slate-400 text-sm">To see rankings here, you must set the <strong>Faction</strong> column in your Google Sheet to either <span class="text-red-500 font-bold">Kage</span> or <span class="text-blue-500 font-bold">Koubu</span>.</p>
+                    <div class="grid grid-cols-2 gap-4 mb-8">
+                        <div class="glass p-4 rounded-2xl border-l-4 border-red-500">
+                            <div class="text-[10px] font-black text-red-500 uppercase">KNS Faction Stash</div>
+                            <div class="text-2xl font-mono font-black text-white" x-text="formatNum(knsTotalStash)"></div>
                         </div>
-                    </template>
+                        <div class="glass p-4 rounded-2xl border-r-4 border-blue-500 text-right">
+                            <div class="text-[10px] font-black text-blue-500 uppercase">KBT Faction Stash</div>
+                            <div class="text-2xl font-mono font-black text-white" x-text="formatNum(kbtTotalStash)"></div>
+                        </div>
+                    </div>
 
-                    <div x-show="knsGroups.length > 0 || kbtGroups.length > 0">
-                        <div class="grid grid-cols-2 gap-4 mb-8">
-                            <div class="glass p-4 rounded-2xl border-l-4 border-red-500">
-                                <div class="text-[10px] font-black text-red-500 uppercase">KNS Faction Stash</div>
-                                <div class="text-2xl font-mono font-black text-white" x-text="formatNum(knsTotalStash)"></div>
-                            </div>
-                            <div class="glass p-4 rounded-2xl border-r-4 border-blue-500 text-right">
-                                <div class="text-[10px] font-black text-blue-500 uppercase">KBT Faction Stash</div>
-                                <div class="text-2xl font-mono font-black text-white" x-text="formatNum(kbtTotalStash)"></div>
-                            </div>
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                        <!-- KNS COLUMN -->
+                        <div class="space-y-4 text-left">
+                            <h3 class="text-center text-red-500 font-black tracking-widest uppercase py-3 glass rounded-xl border border-red-500/20 underline">Kage no Sato</h3>
+                            <template x-for="group in knsGroups">
+                                <div class="space-y-2">
+                                    <div class="flex justify-between items-center px-2">
+                                        <span class="px-2 bg-slate-800 rounded text-[10px] font-black uppercase text-slate-400" x-text="'Group ' + group.id"></span>
+                                        <span class="text-[10px] text-slate-600 font-mono italic" x-text="group.label"></span>
+                                    </div>
+                                    <template x-for="a in group.alliances">
+                                        <div class="glass p-4 rounded-2xl kns-card transition-all" :class="isMatch(a) ? 'ring-2 ring-amber-500 scale-[1.01]' : (searchQuery && !matchesSearch(a) ? 'hidden' : 'opacity-40')">
+                                            <div class="flex justify-between items-start mb-3">
+                                                <div>
+                                                    <div class="flex items-center gap-2 mb-1">
+                                                        <span class="tag-badge" x-text="a.tag"></span>
+                                                        <span class="font-black text-lg uppercase text-white" x-text="a.name"></span>
+                                                    </div>
+                                                    <span class="text-[9px] font-bold text-slate-500 uppercase" x-text="'Power: ' + formatPower(a.power)"></span>
+                                                </div>
+                                                <div class="text-right">
+                                                    <div class="text-[10px] font-bold text-slate-500 uppercase">Stash</div>
+                                                    <div class="text-xl font-mono font-black text-white" x-text="formatNum(a.stash)"></div>
+                                                </div>
+                                            </div>
+                                            <div class="grid grid-cols-4 gap-2 border-t border-slate-800 pt-3">
+                                                <div class="warehouse-box"><div class="text-[7px] text-slate-500 uppercase">WH (3%)</div><div class="text-[9px] font-black text-amber-500" x-text="formatNum(a.stash * 0.03)"></div></div>
+                                                <div class="warehouse-box"><div class="text-[7px] text-slate-500 uppercase">WH (3%)</div><div class="text-[9px] font-black text-amber-500" x-text="formatNum(a.stash * 0.03)"></div></div>
+                                                <div class="warehouse-box"><div class="text-[7px] text-slate-500 uppercase">WH (3%)</div><div class="text-[9px] font-black text-amber-500" x-text="formatNum(a.stash * 0.03)"></div></div>
+                                                <div class="bg-amber-500/10 border border-amber-500/30 rounded-lg p-1 text-center"><div class="text-[7px] text-amber-500 font-black uppercase text-center">Center (6%)</div><div class="text-[9px] font-black text-white" x-text="formatNum(a.stash * 0.06)"></div></div>
+                                            </div>
+                                        </div>
+                                    </template>
+                                </div>
+                            </template>
                         </div>
 
-                        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                            <!-- KNS -->
-                            <div class="space-y-4">
-                                <h3 class="text-center text-red-500 font-black tracking-widest uppercase py-3 glass rounded-xl border border-red-500/20">Kage no Sato</h3>
-                                <template x-for="group in knsGroups">
-                                    <div class="space-y-2">
-                                        <div @click="toggleGroup(group.id)" class="flex justify-between items-center glass p-2 rounded-lg cursor-pointer">
-                                            <span class="text-[10px] font-black uppercase px-2 bg-slate-800 rounded text-slate-400" x-text="'Group ' + group.id"></span>
-                                            <span class="text-[10px] text-slate-600 font-mono italic" x-text="group.label"></span>
-                                        </div>
-                                        <div x-show="isGroupOpen(group.id)" x-transition class="space-y-2">
-                                            <template x-for="a in group.alliances">
-                                                <div class="glass p-4 rounded-2xl kns-card transition-all" :class="isMatch(a) ? 'ring-2 ring-amber-500 scale-[1.01]' : (searchQuery && !matchesSearch(a) ? 'hidden' : 'opacity-40')">
-                                                    <div class="flex justify-between items-start mb-3">
-                                                        <div class="flex items-center gap-2"><span class="tag-badge" x-text="a.tag"></span><span class="font-black text-lg uppercase text-white" x-text="a.name"></span></div>
-                                                        <span class="text-xl font-mono font-black text-white" x-text="formatNum(a.stash)"></span>
-                                                    </div>
-                                                    <div class="grid grid-cols-4 gap-2 border-t border-slate-800 pt-3">
-                                                        <div class="warehouse-box"><div class="text-[7px] text-slate-500 uppercase">WH (3%)</div><div class="text-[9px] font-black text-amber-500" x-text="formatNum(a.stash * 0.03)"></div></div>
-                                                        <div class="warehouse-box"><div class="text-[7px] text-slate-500 uppercase">WH (3%)</div><div class="text-[9px] font-black text-amber-500" x-text="formatNum(a.stash * 0.03)"></div></div>
-                                                        <div class="warehouse-box"><div class="text-[7px] text-slate-500 uppercase">WH (3%)</div><div class="text-[9px] font-black text-amber-500" x-text="formatNum(a.stash * 0.03)"></div></div>
-                                                        <div class="bg-amber-500/10 border border-amber-500/30 rounded-lg p-1 text-center"><div class="text-[7px] text-amber-500 font-black uppercase">AC (6%)</div><div class="text-[9px] font-black text-white" x-text="formatNum(a.stash * 0.06)"></div></div>
-                                                    </div>
-                                                </div>
-                                            </template>
-                                        </div>
+                        <!-- KBT COLUMN -->
+                        <div class="space-y-4 text-left lg:text-right">
+                            <h3 class="text-center text-blue-500 font-black tracking-widest uppercase py-3 glass rounded-xl border border-blue-500/20 underline">Koubutai</h3>
+                            <template x-for="group in kbtGroups">
+                                <div class="space-y-2">
+                                    <div class="flex flex-row-reverse lg:flex-row justify-between items-center px-2">
+                                        <span class="px-2 bg-slate-800 rounded text-[10px] font-black uppercase text-slate-400" x-text="'Group ' + group.id"></span>
+                                        <span class="text-[10px] text-slate-600 font-mono italic" x-text="group.label"></span>
                                     </div>
-                                </template>
-                            </div>
-                            <!-- KBT -->
-                            <div class="space-y-4">
-                                <h3 class="text-center text-blue-500 font-black tracking-widest uppercase py-3 glass rounded-xl border border-blue-500/20">Koubutai</h3>
-                                <template x-for="group in kbtGroups">
-                                    <div class="space-y-2">
-                                        <div @click="toggleGroup(group.id)" class="flex justify-between items-center glass p-2 rounded-lg cursor-pointer">
-                                            <span class="text-[10px] font-black uppercase px-2 bg-slate-800 rounded text-slate-400" x-text="'Group ' + group.id"></span>
-                                            <span class="text-[10px] text-slate-600 font-mono italic" x-text="group.label"></span>
-                                        </div>
-                                        <div x-show="isGroupOpen(group.id)" x-transition class="space-y-2">
-                                            <template x-for="a in group.alliances">
-                                                <div class="glass p-4 rounded-2xl kbt-card transition-all" :class="isMatch(a) ? 'ring-2 ring-amber-500 scale-[1.01]' : (searchQuery && !matchesSearch(a) ? 'hidden' : 'opacity-40')">
-                                                    <div class="flex justify-between items-start mb-3">
-                                                        <div class="flex items-center gap-2"><span class="tag-badge" x-text="a.tag"></span><span class="font-black text-lg uppercase text-white" x-text="a.name"></span></div>
-                                                        <span class="text-xl font-mono font-black text-white" x-text="formatNum(a.stash)"></span>
+                                    <template x-for="a in group.alliances">
+                                        <div class="glass p-4 rounded-2xl kbt-card transition-all text-left" :class="isMatch(a) ? 'ring-2 ring-amber-500 scale-[1.01]' : (searchQuery && !matchesSearch(a) ? 'hidden' : 'opacity-40')">
+                                            <div class="flex justify-between items-start mb-3 text-left">
+                                                <div>
+                                                    <div class="flex items-center gap-2 mb-1">
+                                                        <span class="tag-badge" x-text="a.tag"></span>
+                                                        <span class="font-black text-lg uppercase text-white" x-text="a.name"></span>
                                                     </div>
-                                                    <div class="grid grid-cols-4 gap-2 border-t border-slate-800 pt-3">
-                                                        <div class="warehouse-box"><div class="text-[7px] text-slate-500 uppercase">WH (3%)</div><div class="text-[9px] font-black text-amber-500" x-text="formatNum(a.stash * 0.03)"></div></div>
-                                                        <div class="warehouse-box"><div class="text-[7px] text-slate-500 uppercase">WH (3%)</div><div class="text-[9px] font-black text-amber-500" x-text="formatNum(a.stash * 0.03)"></div></div>
-                                                        <div class="warehouse-box"><div class="text-[7px] text-slate-500 uppercase">WH (3%)</div><div class="text-[9px] font-black text-amber-500" x-text="formatNum(a.stash * 0.03)"></div></div>
-                                                        <div class="bg-amber-500/10 border border-amber-500/30 rounded-lg p-1 text-center"><div class="text-[7px] text-amber-500 font-black uppercase">AC (6%)</div><div class="text-[9px] font-black text-white" x-text="formatNum(a.stash * 0.06)"></div></div>
-                                                    </div>
+                                                    <span class="text-[9px] font-bold text-slate-500 uppercase" x-text="'Power: ' + formatPower(a.power)"></span>
                                                 </div>
-                                            </template>
+                                                <div class="text-right">
+                                                    <div class="text-[10px] font-bold text-slate-500 uppercase">Stash</div>
+                                                    <div class="text-xl font-mono font-black text-white" x-text="formatNum(a.stash)"></div>
+                                                </div>
+                                            </div>
+                                            <div class="grid grid-cols-4 gap-2 border-t border-slate-800 pt-3">
+                                                <div class="warehouse-box"><div class="text-[7px] text-slate-500 uppercase">WH (3%)</div><div class="text-[9px] font-black text-amber-500" x-text="formatNum(a.stash * 0.03)"></div></div>
+                                                <div class="warehouse-box"><div class="text-[7px] text-slate-500 uppercase">WH (3%)</div><div class="text-[9px] font-black text-amber-500" x-text="formatNum(a.stash * 0.03)"></div></div>
+                                                <div class="warehouse-box"><div class="text-[7px] text-slate-500 uppercase">WH (3%)</div><div class="text-[9px] font-black text-amber-500" x-text="formatNum(a.stash * 0.03)"></div></div>
+                                                <div class="bg-amber-500/10 border border-amber-500/30 rounded-lg p-1 text-center"><div class="text-[7px] text-amber-500 font-black uppercase text-center">Center (6%)</div><div class="text-[9px] font-black text-white" x-text="formatNum(a.stash * 0.06)"></div></div>
+                                            </div>
                                         </div>
-                                    </div>
-                                </template>
-                            </div>
+                                    </template>
+                                </div>
+                            </template>
                         </div>
                     </div>
                 </div>
@@ -166,17 +180,17 @@
                 <!-- VIEW 2: ELITE FORCES -->
                 <div x-show="tab === 'forces'" x-cloak>
                     <div class="flex justify-between items-center mb-8 border-b border-slate-800 pb-4">
-                        <h2 class="text-4xl font-black uppercase italic text-cyan-500 tracking-tighter italic">Elite Forces Hierarchy</h2>
+                        <h2 class="text-4xl font-black uppercase italic text-cyan-500 tracking-tighter">Elite Forces Hierarchy</h2>
                         <button @click="openAlliances = []" class="text-[10px] font-black uppercase text-slate-500 underline">Collapse All</button>
                     </div>
 
                     <template x-for="(serverGroup, server) in groupedForces">
                         <div class="mb-12">
-                            <h3 class="text-3xl font-black text-white italic underline decoration-cyan-500 mb-4" x-text="'WARZONE #' + server"></h3>
+                            <h3 class="text-3xl font-black text-white italic underline decoration-cyan-500 mb-4 text-left" x-text="'WARZONE #' + server"></h3>
                             <div class="grid grid-cols-1 gap-4 text-left">
                                 <template x-for="a in serverGroup">
                                     <div x-show="matchesSearch(a)" class="glass rounded-3xl border border-slate-800 overflow-hidden transition-all"
-                                         :class="a.faction === 'Kage no Sato' ? 'kns-card' : (a.faction === 'Koubutai' ? 'kbt-card' : 'neutral-card')">
+                                         :class="a.faction.includes('Kage') ? 'border-red-500/20' : 'border-blue-500/20'">
                                         <div @click="toggleAlliance(a.tag)" class="p-5 flex justify-between items-center cursor-pointer hover:bg-white/5 transition-all">
                                             <div class="flex items-center gap-6">
                                                 <span class="tag-badge text-sm" x-text="a.tag"></span>
@@ -185,9 +199,9 @@
                                                     <div class="text-[10px] font-bold uppercase tracking-widest text-slate-500" x-text="a.faction"></div>
                                                 </div>
                                             </div>
-                                            <div class="flex items-center gap-12">
-                                                <div class="text-right">
-                                                    <div class="text-[10px] text-slate-500 font-bold uppercase tracking-widest">Ace Member THP</div>
+                                            <div class="flex items-center gap-12 text-right">
+                                                <div>
+                                                    <div class="text-[10px] text-slate-500 font-bold uppercase tracking-widest">Ace Member</div>
                                                     <div class="text-2xl font-mono font-black text-amber-500" x-text="formatNum(a.maxTHP)"></div>
                                                 </div>
                                                 <span class="text-slate-600 text-2xl font-black" x-text="isAllianceOpen(a.tag) ? '−' : '+'"></span>
@@ -195,7 +209,7 @@
                                         </div>
                                         <div x-show="isAllianceOpen(a.tag)" x-transition class="bg-black/40 p-6 border-t border-slate-800 overflow-x-auto">
                                             <table class="w-full text-left">
-                                                <thead class="text-[10px] text-slate-500 uppercase border-b border-slate-800 font-black">
+                                                <thead class="text-[10px] text-slate-500 uppercase border-b border-slate-800 font-black tracking-widest">
                                                     <tr><th class="p-3">Rank</th><th class="p-3 text-center">Elite Player</th><th class="p-3 text-right">Hero Power (THP)</th></tr>
                                                 </thead>
                                                 <tbody class="divide-y divide-slate-800">
@@ -216,37 +230,55 @@
                     </template>
                 </div>
 
-                <!-- VIEW 3: ADMIN -->
+                <!-- VIEW 3: ADMIN CONSOLE -->
                 <div x-show="tab === 'admin'" x-cloak class="max-w-2xl mx-auto">
-                    <!-- Same Admin Console logic as v10.1 -->
-                    <div x-show="!authenticated" class="glass p-12 rounded-3xl text-center mt-10">
-                        <h2 class="text-2xl font-black mb-6 italic tracking-tight uppercase">Admin Access Required</h2>
-                        <input type="password" x-model="passInput" class="w-full bg-slate-950 border border-slate-800 p-4 rounded-2xl mb-4 text-center">
-                        <button @click="login()" class="w-full py-4 bg-red-600 rounded-2xl font-black uppercase tracking-widest shadow-lg">Unlock Dashboard</button>
+                    <div x-show="!authenticated" class="glass p-12 rounded-3xl text-center border border-slate-800 mt-10">
+                        <h2 class="text-2xl font-black mb-6 uppercase tracking-widest italic text-red-500">Terminal Authentication</h2>
+                        <input type="password" x-model="passInput" class="w-full bg-slate-950 border border-slate-800 p-4 rounded-2xl mb-4 text-center text-white outline-none focus:ring-2 focus:ring-red-500">
+                        <button @click="login()" class="w-full py-4 bg-red-600 rounded-2xl font-black uppercase shadow-lg">Access Console</button>
                     </div>
-                    <div x-show="authenticated" class="glass p-8 rounded-3xl border border-cyan-500/30 mt-10">
-                        <h3 class="text-xl font-black uppercase text-cyan-400 italic mb-4 text-center">City Control Terminal</h3>
-                        <select x-model="editTag" class="w-full bg-slate-950 p-4 rounded-xl border border-slate-800 text-white mb-6">
-                            <option value="">Select Alliance...</option>
-                            <template x-for="a in alliances.sort((a,b) => a.name.localeCompare(b.name))">
-                                <option :value="a.tag" x-text="`[${a.tag}] ${a.name}`"></option>
-                            </template>
-                        </select>
-                        <template x-if="editTag">
-                            <div class="space-y-3">
-                                <template x-for="n in 6">
-                                    <div class="bg-slate-900/50 p-4 rounded-2xl flex justify-between items-center border border-slate-800">
-                                        <span class="text-xs font-black text-slate-400 uppercase" x-text="'City Lvl ' + n"></span>
-                                        <div class="flex items-center gap-6">
-                                            <button @click="updateCity(n, -1)" class="w-10 h-10 bg-slate-800 rounded-xl hover:bg-red-500 font-bold text-xl">-</button>
-                                            <span class="text-2xl font-black text-cyan-400 w-8 text-center" x-text="getCityCount(n)"></span>
-                                            <button @click="updateCity(n, 1)" class="w-10 h-10 bg-slate-800 rounded-xl hover:bg-emerald-500 font-bold text-xl">+</button>
-                                        </div>
-                                    </div>
-                                </template>
+
+                    <div x-show="authenticated" class="space-y-6 mt-10">
+                        <!-- SEASON START DATE SETTER -->
+                        <div class="glass p-8 rounded-3xl border border-amber-500/30">
+                            <h3 class="text-xl font-black uppercase text-amber-500 italic mb-4">Season Calendar</h3>
+                            <div class="flex gap-4 items-end">
+                                <div class="flex-1">
+                                    <label class="text-[10px] font-bold text-slate-500 uppercase">Season Start Date (Mon of W1)</label>
+                                    <input type="date" x-model="seasonStartDate" @change="saveSettings()" class="w-full bg-slate-950 p-4 rounded-xl border border-slate-800 text-white mt-1">
+                                </div>
+                                <div class="p-4 bg-slate-900 rounded-xl border border-slate-800 text-center">
+                                    <div class="text-[8px] text-slate-500 uppercase font-black">Detected Week</div>
+                                    <div class="text-xl font-black text-white" x-text="autoWeek"></div>
+                                </div>
                             </div>
-                        </template>
-                        <button @click="exportCities()" class="w-full py-4 bg-emerald-600 hover:bg-emerald-500 rounded-2xl font-black uppercase text-xs mt-6">Export Updated Cities (CSV)</button>
+                        </div>
+
+                        <!-- CITY MANAGER -->
+                        <div class="glass p-8 rounded-3xl border border-cyan-500/30">
+                            <h3 class="text-xl font-black uppercase text-cyan-400 italic mb-4">City Occupation Terminal</h3>
+                            <select x-model="editTag" class="w-full bg-slate-950 p-4 rounded-xl border border-slate-800 text-white mb-6">
+                                <option value="">Select Alliance...</option>
+                                <template x-for="a in alliances.sort((a,b) => a.name.localeCompare(b.name))">
+                                    <option :value="a.tag" x-text="`[${a.tag}] ${a.name}`"></option>
+                                </template>
+                            </select>
+                            <template x-if="editTag">
+                                <div class="space-y-3">
+                                    <template x-for="n in 6">
+                                        <div class="bg-slate-900/50 p-4 rounded-2xl flex justify-between items-center border border-slate-800">
+                                            <span class="text-xs font-black text-slate-400 uppercase" x-text="'City Level ' + n"></span>
+                                            <div class="flex items-center gap-6">
+                                                <button @click="updateCity(n, -1)" class="w-10 h-10 bg-slate-800 rounded-xl hover:bg-red-500 font-bold">-</button>
+                                                <span class="text-2xl font-black text-cyan-400 w-8 text-center" x-text="getCityCount(n)"></span>
+                                                <button @click="updateCity(n, 1)" class="w-10 h-10 bg-slate-800 rounded-xl hover:bg-emerald-500 font-bold">+</button>
+                                            </div>
+                                        </div>
+                                    </template>
+                                    <button @click="exportCities()" class="w-full py-4 bg-emerald-600 hover:bg-emerald-500 rounded-2xl font-black uppercase text-xs mt-6">Export Updated CSV</button>
+                                </div>
+                            </template>
+                        </div>
                     </div>
                 </div>
 
@@ -257,31 +289,57 @@
     <script>
         function warRoom() {
             return {
-                tab: 'warroom', loading: true, mobileMenu: false, week: 1, searchQuery: '',
-                currentPhase: '', phaseAction: '', phaseCountdown: '', currentRound: '',
+                tab: 'warroom', loading: true, mobileMenu: false, searchQuery: '',
+                week: 1, autoWeek: 1, seasonStartDate: '',
+                currentPhase: '', phaseAction: '', phaseCountdown: '', currentRoundText: '',
                 alliances: [], players: [], history: [], cities: [], openGroups: [1,2,3,4,5,6,7,8,9,10,11], openAlliances: [],
                 authenticated: false, passInput: '', editTag: '', modifiedTags: [], myAllianceName: '',
 
                 init() {
                     this.myAllianceName = localStorage.getItem('war_ref_alliance') || '';
-                    this.week = localStorage.getItem('war_week') || 1;
+                    this.seasonStartDate = localStorage.getItem('war_season_start') || '';
                     this.fetchData();
                     setInterval(() => this.updateClock(), 1000);
                 },
 
+                saveSettings() {
+                    localStorage.setItem('war_ref_alliance', this.myAllianceName);
+                    localStorage.setItem('war_week', this.week);
+                    localStorage.setItem('war_season_start', this.seasonStartDate);
+                },
+
                 updateClock() {
                     const now = new Date();
-                    const day = now.getUTCDay();
-                    const hour = now.getUTCHours() + 1;
-                    this.currentRound = (day <= 3) ? "Round 1/3/5/7" : "Round 2/4/6/8";
-                    if (day === 1 || day === 4) { this.currentPhase = "Grouping Phase"; this.phaseAction = "Brackets are forming."; }
-                    else if (day === 2 || day === 5) { this.currentPhase = "Declaration Window"; this.phaseAction = "R4+ can declare war."; }
-                    else if (day === 3 || day === 6) { 
-                        if (hour < 12) { this.currentPhase = "Invitation Phase"; this.phaseAction = "Invite allies to assist."; }
-                        else if (hour < 12.5) { this.currentPhase = "Preparation Phase"; this.phaseAction = "Launch Missiles."; }
-                        else if (hour < 13.5) { this.currentPhase = "WAR ACTIVE"; this.phaseAction = "Kill WH -> Kill AC!"; }
-                        else { this.currentPhase = "Post-War Analysis"; this.phaseAction = "Resting."; }
-                    } else { this.currentPhase = "Peace Time"; this.phaseAction = "Preparing..."; }
+                    const day = now.getUTCDay(); // 0-Sun, 1-Mon, 2-Tue...
+                    const hour = now.getUTCHours() + 1; // CET Offset
+
+                    // Auto-Week Logic
+                    if (this.seasonStartDate) {
+                        const start = new Date(this.seasonStartDate);
+                        const diffDays = Math.floor((now - start) / (1000 * 60 * 60 * 24));
+                        this.autoWeek = Math.max(1, Math.min(4, Math.floor(diffDays / 7) + 1));
+                        if (!localStorage.getItem('war_week')) this.week = this.autoWeek;
+                    }
+
+                    // Round Logic
+                    const roundNum = ((this.week - 1) * 2) + (day <= 3 ? 1 : 2);
+                    this.currentRoundText = `Round ${roundNum} (Week ${this.week})`;
+
+                    if (day === 1 || day === 4) {
+                        this.currentPhase = "Grouping Phase";
+                        this.phaseAction = "Waiting for declaration. Copper brackets are presented.";
+                    } else if (day === 2 || day === 5) {
+                        this.currentPhase = "Declaration Stage";
+                        this.phaseAction = "Attackers declare war on defenders in the same group.";
+                    } else if (day === 3 || day === 6) {
+                        if (hour < 12) { this.currentPhase = "Invitation Stage"; this.phaseAction = "Defenders invite allies to assist in defense."; }
+                        else if (hour < 12.5) { this.currentPhase = "Preparation Stage"; this.phaseAction = "30 min window for Missiles and Tesla Coils."; }
+                        else if (hour < 13.2) { this.currentPhase = "WAR ACTIVE"; this.phaseAction = "Kill Warehouses first (3% ea) -> Then Center (6%)!"; }
+                        else { this.currentPhase = "Post-War Cooling"; this.phaseAction = "Calculating plunder results."; }
+                    } else {
+                        this.currentPhase = "Peace Time";
+                        this.phaseAction = "Analyze stats and prepare for the next round.";
+                    }
                     this.phaseCountdown = now.toLocaleTimeString('en-GB');
                 },
 
@@ -292,13 +350,16 @@
                     const urlP = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRFfdDzrMXgqdjSZrSI4YcbDvFoYlrri87EEhG2I9aecW2xcuuLFcl-sxEVjvY1LTdPkXjKSzlwoNQd/pub?gid=1007829300&output=csv';
                     const urlC = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRFfdDzrMXgqdjSZrSI4YcbDvFoYlrri87EEhG2I9aecW2xcuuLFcl-sxEVjvY1LTdPkXjKSzlwoNQd/pub?gid=1860064624&output=csv';
                     const urlH = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRFfdDzrMXgqdjSZrSI4YcbDvFoYlrri87EEhG2I9aecW2xcuuLFcl-sxEVjvY1LTdPkXjKSzlwoNQd/pub?gid=1091133615&output=csv';
+                    
                     const [resA, resP, resC, resH] = await Promise.all([fetch(urlA + cb).then(r => r.text()), fetch(resP + cb).then(r => r.text()), fetch(urlC + cb).then(r => r.text()), fetch(urlH + cb).then(r => r.text())]);
+                    
                     const mapF = (f) => {
                         f = f?.toLowerCase().trim();
-                        if (f === 'kage' || f === 'kage no sato') return 'Kage no Sato';
-                        if (f === 'koubu' || f === 'koubutai') return 'Koubutai';
+                        if (f === 'kage' || f === 'kage no sato' || f === 'red') return 'Kage no Sato';
+                        if (f === 'koubu' || f === 'koubutai' || f === 'blue') return 'Koubutai';
                         return 'Unassigned';
                     };
+
                     this.alliances = Papa.parse(resA, {header:true}).data.map(r => ({ faction: mapF(r.Faction), server: r.Server, tag: r.Tag, name: r['Alliance Name'], power: Number(String(r['Total Power']).replace(/\D/g,'')) })).filter(r => r.tag);
                     this.players = Papa.parse(resP, {header:true}).data.map(r => ({ tag: r.Tag, name: r['Player Name'], thp: Number(String(r.THP).replace(/\D/g,'')) })).filter(r => r.name);
                     this.cities = Papa.parse(resC, {header:true}).data.filter(r => r.Tag);
@@ -308,10 +369,13 @@
 
                 get factionData() {
                     return this.alliances.map(a => {
-                        const snapshots = this.history.filter(x => x.Tag === a.tag).sort((a,b) => new Date(b.Timestamp) - new Date(a.Timestamp));
-                        return { ...a, stash: snapshots[0] ? Number(snapshots[0]['Total Copper']) : 0 };
+                        const snaps = this.history.filter(x => x.Tag === a.tag).sort((a,b) => new Date(b.Timestamp) - new Date(a.Timestamp));
+                        return { ...a, stash: snaps[0] ? Number(snaps[0]['Total Copper']) : 0 };
                     });
                 },
+
+                get knsGroups() { return this.getGroupedFaction('Kage no Sato'); },
+                get kbtGroups() { return this.getGroupedFaction('Koubutai'); },
 
                 getGroupedFaction(fName) {
                     const sorted = this.factionData.filter(a => a.faction === fName).sort((a,b) => b.stash - a.stash);
@@ -334,16 +398,11 @@
                         const maxTHP = alliancePlayers.length > 0 ? Math.max(...alliancePlayers.map(p => p.thp)) : 0;
                         return { ...a, maxTHP };
                     });
-                    allianceRanks.forEach(a => {
-                        if (!groups[a.server]) groups[a.server] = [];
-                        groups[a.server].push(a);
-                    });
+                    allianceRanks.forEach(a => { if (!groups[a.server]) groups[a.server] = []; groups[a.server].push(a); });
                     Object.keys(groups).forEach(s => groups[s].sort((a,b) => b.maxTHP - a.maxTHP));
                     return groups;
                 },
 
-                get knsGroups() { return this.getGroupedFaction('Kage no Sato'); },
-                get kbtGroups() { return this.getGroupedFaction('Koubutai'); },
                 get knsTotalStash() { return this.factionData.filter(a => a.faction === 'Kage no Sato').reduce((s, a) => s + a.stash, 0); },
                 get kbtTotalStash() { return this.factionData.filter(a => a.faction === 'Koubutai').reduce((s, a) => s + a.stash, 0); },
                 getPlayersForAlliance(tag) { return this.players.filter(p => p.tag === tag).sort((a,b) => b.thp - a.thp); },
@@ -371,9 +430,8 @@
                     c['L'+n] = Math.max(0, Number(c['L'+n] || 0) + d);
                     if (!this.modifiedTags.includes(this.editTag)) this.modifiedTags.push(this.editTag);
                 },
-                exportCities() { const csv = Papa.unparse(this.cities); const blob = new Blob([csv], { type: 'text/csv' }); const url = window.URL.createObjectURL(blob); const a = document.createElement('a'); a.setAttribute('href', url); a.setAttribute('download', 'cities.csv'); a.click(); this.modifiedTags = []; },
-                copyScoutPrompt() { const text = "Hi Team! Please capture a screenshot of our current leaderboard or target stash and send it here. Format: [Alliance Tag], [Alliance Name], [Current Copper Stash], [Current Server Time]."; navigator.clipboard.writeText(text); alert("Scout Prompt copied!"); },
-                saveSettings() { localStorage.setItem('war_ref_alliance', this.myAllianceName); localStorage.setItem('war_week', this.week); },
+                exportCities() { const csv = Papa.unparse(this.cities); const blob = new Blob([csv], { type: 'text/csv' }); const url = window.URL.createObjectURL(blob); const a = document.createElement('a'); a.setAttribute('href', url); a.setAttribute('download', 'cities_update.csv'); a.click(); this.modifiedTags = []; },
+                copyScoutPrompt() { const text = "Hi Team! Please capture a screenshot of our current leaderboard or target stash and send it here. Format: [Tag], [Alliance Name], [Copper Stash], [Server Time]."; navigator.clipboard.writeText(text); alert("Scout Prompt copied!"); },
                 formatNum(v) { return Math.floor(v || 0).toLocaleString(); },
                 formatPower(v) { return (v/1000000000).toFixed(2) + 'B'; }
             }
