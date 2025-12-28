@@ -40,20 +40,30 @@
                 <input type="text" x-model="searchQuery" placeholder="Search Tag or Name..." class="w-full bg-slate-900 border border-slate-700 p-3 rounded-xl text-sm outline-none focus:ring-2 focus:ring-cyan-500">
             </div>
 
-            <!-- RESET TIME MODULE -->
-            <div class="p-4 bg-slate-900 border border-amber-500/20 rounded-2xl shadow-lg">
-                <div class="flex justify-between items-center mb-1 text-[10px] font-black text-amber-500 uppercase italic">
-                    <span x-text="currentRoundText"></span>
-                    <span class="w-2 h-2 rounded-full bg-red-500 animate-ping"></span>
-                </div>
-                <div class="text-xs font-black text-white uppercase mb-1" x-text="currentPhase"></div>
-                <div class="text-[9px] text-slate-500 uppercase font-bold leading-tight mb-3 italic" x-text="phaseAction"></div>
-                
-                <label class="text-[8px] font-bold text-slate-600 uppercase mb-1 block">R1 Monday Reset Time</label>
-                <input type="datetime-local" x-model="round1Reset" @change="saveSettings()" class="w-full bg-black border border-slate-800 p-2 rounded text-[10px] text-white mb-2 outline-none">
-                
-                <div class="text-xl font-mono font-black text-amber-400 text-center border-t border-slate-800 pt-2" x-text="phaseCountdown"></div>
-            </div>
+<!-- THE NEW CALENDAR MODULE -->
+<div class="p-4 bg-slate-900 border border-amber-500/20 rounded-2xl shadow-lg">
+    <div class="flex justify-between items-center mb-1 text-[10px] font-black text-amber-500 uppercase italic">
+        <span x-text="currentRoundText"></span>
+        <span class="w-2 h-2 rounded-full bg-red-500 animate-ping"></span>
+    </div>
+    <div class="text-xs font-black text-white uppercase mb-1" x-text="currentPhase"></div>
+    <div class="text-[9px] text-slate-500 uppercase font-bold leading-tight mb-3 italic" x-text="phaseAction"></div>
+    
+    <div class="space-y-2 border-t border-slate-800 pt-3">
+        <label class="text-[8px] font-bold text-slate-600 uppercase block tracking-widest text-center italic">Round 1 Server Reset Time</label>
+        
+        <!-- Native Date/Time Picker -->
+        <input type="datetime-local" x-model="round1Reset" 
+               class="w-full bg-black border border-slate-800 p-2 rounded text-[10px] text-white outline-none focus:border-amber-500 transition-all">
+        
+        <button @click="applyCalendar()" 
+                class="w-full py-2 bg-amber-600 hover:bg-amber-500 text-white text-[9px] font-black uppercase rounded transition-all shadow-lg">
+            Apply & Sync
+        </button>
+    </div>
+    
+    <div class="text-xl font-mono font-black text-amber-400 text-center border-t border-slate-800 pt-2 mt-2" x-text="phaseCountdown"></div>
+</div>
 
             <nav class="flex flex-col gap-2">
                 <button @click="tab = 'warroom'; mobileMenu = false" :class="tab === 'warroom' ? 'bg-amber-600 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-800'" class="w-full text-left px-4 py-3 rounded-xl font-bold text-xs uppercase italic tracking-widest transition-all">1. Declaration Hub</button>
