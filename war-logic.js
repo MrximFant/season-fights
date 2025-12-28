@@ -128,3 +128,38 @@ window.warRoom = function() {
         formatPower(v) { return (v/1000000000).toFixed(2) + 'B'; }
     }
 }
+// --- ADMIN HELPERS ---
+        login() { 
+            // Password is KING (all caps)
+            if (this.passInput === 'KING') {
+                this.authenticated = true; 
+            } else {
+                alert("Access Denied: Incorrect Password");
+            }
+        },
+        getCityCount(n) { 
+            const c = this.cities.find(x => (x.tag||'').toLowerCase() === this.editTag.toLowerCase()); 
+            return c ? Number(c['l'+n] || 0) : 0; 
+        },
+        getTotalCities() { 
+            const c = this.cities.find(x => (x.tag||'').toLowerCase() === this.editTag.toLowerCase()); 
+            return c ? [1,2,3,4,5,6].reduce((s, i) => s + Number(c['l'+i] || 0), 0) : 0; 
+        },
+        updateCity(n, d) { 
+            let c = this.cities.find(x => (x.tag||'').toLowerCase() === this.editTag.toLowerCase()); 
+            if (!c) { 
+                c = { tag: this.editTag.toLowerCase(), l1:0, l2:0, l3:0, l4:0, l5:0, l6:0 }; 
+                this.cities.push(c); 
+            } 
+            if (d > 0 && this.getTotalCities() >= 6) return alert("Max 6 cities!"); 
+            c['l'+n] = Math.max(0, Number(c['l'+n] || 0) + d); 
+            if (!this.modifiedTags.includes(this.editTag)) this.modifiedTags.push(this.editTag); 
+        },
+        exportCities() { 
+            const csv = Papa.unparse(this.cities); 
+            const b = new Blob([csv],{type:'text/csv'}); 
+            const u = window.URL.createObjectURL(b); 
+            const a = document.createElement('a'); 
+            a.href = u; a.download = 'cities.csv'; a.click(); 
+            this.modifiedTags = []; 
+        },
