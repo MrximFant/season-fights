@@ -1,10 +1,12 @@
 window.warRoom = function() {
     return {
-        tab: 'warroom', loading: true, mobileMenu: false, searchQuery: '', refSearch: '', debugStatus: 'Ready',
-        week: 1, round1Reset: '', currentPhase: '', phaseAction: '', phaseCountdown: '', currentRoundText: '',
+        // --- STATE ---
+        tab: 'warroom', loading: true, mobileMenu: false, searchQuery: '', debugStatus: 'Ready',
+        refSearch: '', week: 1, round1Reset: '', currentPhase: '', phaseAction: '', phaseCountdown: '', currentRoundText: '',
         alliances: [], players: [], history: [], cities: [], openAlliances: [], openServers: [],
         authenticated: false, passInput: '', editTag: '', modifiedTags: [], myAllianceName: '',
 
+        // --- INIT ---
         init() {
             this.myAllianceName = localStorage.getItem('war_ref_alliance') || '';
             this.round1Reset = localStorage.getItem('war_round1_reset') || '';
@@ -14,7 +16,7 @@ window.warRoom = function() {
         },
 
         applyCalendar() {
-            if (!this.round1Reset) return alert("Please select a date and time.");
+            if (!this.round1Reset) return alert("Please select a date/time.");
             localStorage.setItem('war_round1_reset', this.round1Reset);
             this.updateClock();
             alert("Timeline Synchronized!");
@@ -52,27 +54,15 @@ window.warRoom = function() {
             this.phaseCountdown = now.toLocaleTimeString();
         },
 
+        // --- DATA SYNC ---
         async fetchData() {
             this.loading = true;
             const cb = `&t=${Date.now()}`;
             const base = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRFfdDzrMXgqdjSZrSI4YcbDvFoYlrri87EEhG2I9aecW2xcuuLFcl-sxEVjvY1LTdPkXjKSzlwoNQd/pub?output=csv&gid=';
-            
-            const scrub = (d) => d.map(r => { 
-                let c = {}; 
-                Object.keys(r).forEach(k => c[k.trim().toLowerCase().replace(/\s+/g,'')] = r[k] ? String(r[k]).trim() : ''); 
-                return c; 
-            });
-
-            const fetchCSV = async (gid) => { 
-                try { 
-                    const r = await fetch(base + gid + cb); 
-                    const t = await r.text(); 
-                    return scrub(Papa.parse(t, {header:true, skipEmptyLines:true}).data); 
-                } catch (e) { return []; } 
-            };
-
+            const scrub = (d) => d.map(r => { let c = {}; Object.keys(r).forEach(k => c[k.trim().toLowerCase().replace(/\s+/g,'')] = r[k] ? String(r[k]).trim() : ''); return c; });
+            const fetchCSV = async (gid) => { try { const r = await fetch(base + gid + cb); const t = await r.text(); return scrub(Papa.parse(t, {header:true, skipEmptyLines:true}).data); } catch (e) { return []; } };
             const [rawA, rawP, rawC, rawH] = await Promise.all([fetchCSV('0'), fetchCSV('1007829300'), fetchCSV('1860064624'), fetchCSV('1091133615')]);
-
+            
             const mapF = (f) => {
                 if (!f) return 'Unassigned';
                 const l = f.toLowerCase();
@@ -81,24 +71,26 @@ window.warRoom = function() {
                 return 'Unassigned';
             };
 
-            this.alliances = rawA.map(r => ({ faction: mapF(r.faction), server: r.server, tag: r.tag, name: r.alliancename, power: Number((r.totalpower||'').replace(/\D/g,'')) || 0 })).filter(r => r.tag);
-            this.players = rawP.map(r => ({ tag: r.tag, name: r.playername, thp: Number((r.thp||'').replace(/\D/g,'')) || 0 })).filter(r => r.name);
+            this.alliances = rawA.map(r => ({ faction: mapF(r.faction), server: r.server, tag: r.tag, name: r.alliancename, power: Number((r.totalpower || '').replace(/\D/g,'')) || 0 })).filter(r => r.tag);
+            this.players = rawP.map(r => ({ tag: r.tag, name: r.playername, thp: Number((r.thp || '').replace(/\D/g,'')) || 0 })).filter(r => r.name);
             this.cities = rawC; this.history = rawH;
             this.loading = false;
-            this.debugStatus = `OK: ${this.alliances.length} Alliances Found`;
+            this.debugStatus = `OK: ${this.alliances.length} Alliances`;
         },
 
-        get filteredRefList() {
-            const list = [...this.alliances].sort((a,b) => a.name.localeCompare(b.name));
-            if (!this.refSearch) return list;
-            const q = this.refSearch.toLowerCase();
-            return list.filter(a => (a.tag||'').toLowerCase().includes(q) || (a.name||'').toLowerCase().includes(q));
-        },
-
+        // --- CALCULATED DATA ---
         get factionData() {
             return this.alliances.map(a => {
-                const snp = this.history.filter(x => (x.tag||'').toLowerCase() === a.tag.toLowerCase()).sort((a,b) => new Date(b.timestamp) - new Date(a.timestamp));
-                return { ...a, stash: snp[0] ? Number(snp[0].totalcopper.replace(/\D/g,'')) : 0 };
+                const snps = this.history.filter(x => x.tag.toLowerCase() === a.tag.toLowerCase()).sort((a,b) => new Date(b.timestamp) - new Date(a.timestamp));
+                const lastStash = snps[0] ? Number(snps[0].totalcopper.replace(/\D/g,'')) : 0;
+                const lastTime = snps[0] ? new Date(snps[0].timestamp) : new Date();
+                
+                // Live ticking logic
+                const rate = this.getPassiveRate(a.tag);
+                const hoursPassed = (new Date() - lastTime) / 3600000;
+                const estimatedStash = lastStash + (rate * hoursPassed);
+
+                return { ...a, stash: estimatedStash, rawStash: lastStash, rate: rate };
             });
         },
 
@@ -124,11 +116,21 @@ window.warRoom = function() {
             const allianceRanks = this.alliances.map(a => {
                 const pList = this.players.filter(p => (p.tag||'').toLowerCase() === a.tag.toLowerCase());
                 const maxTHP = pList.length > 0 ? Math.max(...pList.map(p => p.thp)) : 0;
-                return { ...a, maxTHP };
+                
+                // Get stash for this alliance
+                const data = this.factionData.find(f => f.tag === a.tag);
+                return { ...a, maxTHP, stash: data ? data.stash : 0 };
             });
             allianceRanks.forEach(a => { if (!groups[a.server]) groups[a.server] = []; groups[a.server].push(a); });
             Object.keys(groups).forEach(s => groups[s].sort((a,b) => b.maxTHP - a.maxTHP));
             return groups;
+        },
+
+        get filteredRefList() {
+            const list = [...this.alliances].sort((a,b) => a.name.localeCompare(b.name));
+            if (!this.refSearch) return list;
+            const q = this.refSearch.toLowerCase();
+            return list.filter(a => (a.tag||'').toLowerCase().includes(q) || (a.name||'').toLowerCase().includes(q));
         },
 
         isAllyServer(serverGroup) {
@@ -141,7 +143,12 @@ window.warRoom = function() {
         get knsTotalStash() { return this.factionData.filter(a => a.faction.includes('Kage')).reduce((s, a) => s + a.stash, 0); },
         get kbtTotalStash() { return this.factionData.filter(a => a.faction.includes('Koubu')).reduce((s, a) => s + a.stash, 0); },
         getPlayersForAlliance(tag) { return this.players.filter(p => (p.tag||'').toLowerCase() === tag.toLowerCase()).sort((a,b) => b.thp - a.thp); },
-        getPassiveRate(tag) { const c = this.cities.find(x => (x.tag||'').toLowerCase() === tag.toLowerCase()); return c ? (Number(c.l1||0)*100)+(Number(c.l2||0)*200)+(Number(c.l3||0)*300)+(Number(c.l4||0)*400)+(Number(c.l5||0)*500)+(Number(c.l6||0)*600) : 0; },
+        
+        getPassiveRate(tag) { 
+            const c = this.cities.find(x => (x.tag||'').toLowerCase() === tag.toLowerCase()); 
+            if (!c) return 0;
+            return (Number(c.l1||0)*100)+(Number(c.l2||0)*200)+(Number(c.l3||0)*300)+(Number(c.l4||0)*400)+(Number(c.l5||0)*500)+(Number(c.l6||0)*600);
+        },
         
         isMatch(t) { 
             if (!this.myAllianceName) return false; 
