@@ -70,53 +70,45 @@ window.warRoom = function() {
             this.debugStatus = `OK: ${this.alliances.length} Alliances`;
         },
 
-        // --- CALCULATED DATA ---
+        // --- THE ACTUAL RATE LOGIC (HISTORY DELTA) ---
+        getObservedRate(tag) {
+            const snps = this.history.filter(x => x.tag.toLowerCase() === tag.toLowerCase()).sort((a,b) => new Date(b.timestamp) - new Date(a.timestamp));
+            if (snps.length < 2) return 0; // Need at least two screenshots
+            
+            const latest = snps[0];
+            const previous = snps[1];
+            
+            const copperDiff = Number(latest.totalcopper.replace(/\D/g,'')) - Number(previous.totalcopper.replace(/\D/g,''));
+            const hoursDiff = (new Date(latest.timestamp) - new Date(previous.timestamp)) / 3600000;
+            
+            return hoursDiff > 0 ? Math.round(copperDiff / hoursDiff) : 0;
+        },
+
         get factionData() {
             return this.alliances.map(a => {
                 const snps = this.history.filter(x => x.tag.toLowerCase() === a.tag.toLowerCase()).sort((a,b) => new Date(b.timestamp) - new Date(a.timestamp));
                 const lastStash = snps[0] ? Number(snps[0].totalcopper.replace(/\D/g,'')) : 0;
                 const lastTime = snps[0] ? new Date(snps[0].timestamp) : new Date();
-                const rate = this.getPassiveRate(a.tag);
-                const hoursPassed = (new Date() - lastTime) / 3600000;
-                const estimatedStash = lastStash + (rate * hoursPassed);
+                
+                // Observed Rate from screenshots
+                const rate = this.getObservedRate(a.tag);
+                
+                // Live ticking estimate
+                const hoursSinceLastScreen = (new Date() - lastTime) / 3600000;
+                const estimatedStash = lastStash + (rate * hoursSinceLastScreen);
+
                 return { ...a, stash: estimatedStash, rate: rate };
             });
         },
 
-        get groupedForces() {
-            const groups = {};
-            const allianceRanks = this.alliances.map(a => {
-                const pList = this.players.filter(p => (p.tag||'').toLowerCase() === a.tag.toLowerCase());
-                const maxTHP = pList.length > 0 ? Math.max(...pList.map(p => p.thp)) : 0;
-                const data = this.factionData.find(f => f.tag === a.tag);
-                return { ...a, maxTHP, stash: data ? data.stash : 0, rate: data ? data.rate : 0 };
-            });
-            allianceRanks.forEach(a => { if (!groups[a.server]) groups[a.server] = []; groups[a.server].push(a); });
-            Object.keys(groups).forEach(s => groups[s].sort((a,b) => b.maxTHP - a.maxTHP));
-            return groups;
-        },
-
-        // --- HELPERS ---
-        get filteredRefList() {
-            const list = [...this.alliances].sort((a,b) => a.name.localeCompare(b.name));
-            if (!this.refSearch) return list;
-            const q = this.refSearch.toLowerCase();
-            return list.filter(a => (a.tag||'').toLowerCase().includes(q) || (a.name||'').toLowerCase().includes(q));
-        },
+        // --- REST OF THE LOGIC ---
+        get filteredRefList() { const list = [...this.alliances].sort((a,b) => a.name.localeCompare(b.name)); if (!this.refSearch) return list; const q = this.refSearch.toLowerCase(); return list.filter(a => (a.tag||'').toLowerCase().includes(q) || (a.name||'').toLowerCase().includes(q)); },
         get knsGroups() { return this.getGroupedFaction('Kage no Sato'); },
         get kbtGroups() { return this.getGroupedFaction('Koubutai'); },
-        getGroupedFaction(fName) {
-            const sorted = this.factionData.filter(a => a.faction === fName).sort((a,b) => b.stash - a.stash);
-            const groups = [];
-            const step = this.week === 1 ? 10 : (this.week === 2 ? 6 : 3);
-            let i = 0;
-            while (i < 30 && i < sorted.length) { const gid = Math.floor(i / step) + 1; groups.push({ id: gid, label: `Rank ${i+1}-${Math.min(i+step, 30)}`, alliances: sorted.slice(i, i + step) }); i += step; }
-            if (sorted.length > 30) groups.push({ id: (this.week===1?4:(this.week===2?6:11)), label: "Rank 31-100", alliances: sorted.slice(30, 100) });
-            return groups;
-        },
+        getGroupedFaction(fName) { const sorted = this.factionData.filter(a => a.faction === fName).sort((a,b) => b.stash - a.stash); const groups = []; const step = this.week === 1 ? 10 : (this.week === 2 ? 6 : 3); let i = 0; while (i < 30 && i < sorted.length) { const gid = Math.floor(i / step) + 1; groups.push({ id: gid, label: `Rank ${i+1}-${Math.min(i+step, 30)}`, alliances: sorted.slice(i, i + step) }); i += step; } if (sorted.length > 30) groups.push({ id: (this.week===1?4:(this.week===2?6:11)), label: "Rank 31-100", alliances: sorted.slice(30, 100) }); return groups; },
+        get groupedForces() { const groups = {}; const allianceRanks = this.alliances.map(a => { const pList = this.players.filter(p => (p.tag||'').toLowerCase() === a.tag.toLowerCase()); const maxTHP = pList.length > 0 ? Math.max(...pList.map(p => p.thp)) : 0; const data = this.factionData.find(f => f.tag === a.tag); return { ...a, maxTHP, stash: data ? data.stash : 0, rate: data ? data.rate : 0 }; }); allianceRanks.forEach(a => { if (!groups[a.server]) groups[a.server] = []; groups[a.server].push(a); }); Object.keys(groups).forEach(s => groups[s].sort((a,b) => b.maxTHP - a.maxTHP)); return groups; },
         isAllyServer(serverGroup) { if (!this.myAllianceName) return true; const myF = this.alliances.find(a => a.name === this.myAllianceName)?.faction; return serverGroup.some(a => a.faction === myF); },
         getPlayersForAlliance(tag) { return this.players.filter(p => (p.tag||'').toLowerCase() === tag.toLowerCase()).sort((a,b) => b.thp - a.thp); },
-        getPassiveRate(tag) { const c = this.cities.find(x => (x.tag||'').toLowerCase() === tag.toLowerCase()); return c ? (Number(c.l1||0)*100)+(Number(c.l2||0)*200)+(Number(c.l3||0)*300)+(Number(c.l4||0)*400)+(Number(c.l5||0)*500)+(Number(c.l6||0)*600) : 0; },
         isMatch(t) { if (!this.myAllianceName) return false; const me = this.factionData.find(a => a.name === this.myAllianceName); if (!me || t.faction === me.faction || t.faction === 'Unassigned') return false; const meG = this.getGroupedFaction(me.faction).find(g => g.alliances.some(x => x.tag === me.tag))?.id; const taG = this.getGroupedFaction(t.faction).find(g => g.alliances.some(x => x.tag === t.tag))?.id; return meG === taG; },
         matchesSearch(a) { const q = this.searchQuery.toLowerCase(); return (a.name||'').toLowerCase().includes(q) || (a.tag||'').toLowerCase().includes(q); },
         toggleAlliance(tag) { this.openAlliances = this.openAlliances.includes(tag) ? this.openAlliances.filter(x => x !== tag) : [...this.openAlliances, tag]; },
@@ -130,7 +122,7 @@ window.warRoom = function() {
         getTotalCities() { const c = this.cities.find(x => (x.tag||'').toLowerCase() === this.editTag.toLowerCase()); return c ? [1,2,3,4,5,6].reduce((s, i) => s + Number(c['l'+i] || 0), 0) : 0; },
         updateCity(n, d) { let c = this.cities.find(x => (x.tag||'').toLowerCase() === this.editTag.toLowerCase()); if (!c) { c = { tag: this.editTag.toLowerCase(), l1:0,l2:0,l3:0,l4:0,l5:0,l6:0 }; this.cities.push(c); } if (d > 0 && this.getTotalCities() >= 6) return alert("Max 6 cities!"); c['l'+n] = Math.max(0, Number(c['l'+n] || 0) + d); if (!this.modifiedTags.includes(this.editTag)) this.modifiedTags.push(this.editTag); },
         exportCities() { const csv = Papa.unparse(this.cities); const b = new Blob([csv],{type:'text/csv'}); const u = window.URL.createObjectURL(b); const a = document.createElement('a'); a.href = u; a.download = 'cities.csv'; a.click(); this.modifiedTags = []; },
-        copyScoutPrompt() { navigator.clipboard.writeText("Please provide: [Tag], [Alliance], [Stash], [Time]"); alert("Scout Prompt Copied!"); },
+        copyScoutPrompt() { navigator.clipboard.writeText("Please provide: [Tag], [Alliance], [Stash], [Time]"); alert("Prompt Copied!"); },
         formatNum(v) { return Math.floor(v || 0).toLocaleString(); },
         formatPower(v) { return (v/1000000000).toFixed(2) + 'B'; }
     }
