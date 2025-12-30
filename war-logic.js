@@ -1,18 +1,18 @@
 window.warRoom = function() {
     return {
+        // --- STATE ---
         tab: 'warroom', loading: true, mobileMenu: false, searchQuery: '', refSearch: '', debugStatus: 'Ready',
-        week: 1, round1Reset: '', currentPhase: '', phaseAction: '', phaseCountdown: '', currentRoundText: '',
+        week: 1, currentPhase: '', phaseAction: '', phaseCountdown: '', currentRoundText: '',
         alliances: [], players: [], history: [], cities: [], openAlliances: [], openServers: [],
         authenticated: false, passInput: '', editTag: '', modifiedTags: [], myAllianceName: '', 
         useServerTime: false, displayClock: '',
 
-        seasonStart: new Date("2026-01-05T03:00:00+01:00"),
+        // SEASON START: Monday, Jan 5, 2026, 03:00 CET
+        seasonStart: new Date("2026/01/05 03:00:00"),
 
         init() {
-            // Restore persistent settings
             this.myAllianceName = localStorage.getItem('war_ref_alliance') || '';
             this.useServerTime = localStorage.getItem('war_time_mode') === 'true';
-            
             this.fetchData();
             this.updateClock();
             setInterval(() => this.updateClock(), 1000);
@@ -23,8 +23,10 @@ window.warRoom = function() {
             localStorage.setItem('war_time_mode', this.useServerTime);
         },
 
+        // --- CLOCK ENGINE ---
         updateClock() {
             const now = new Date();
+            // Force CET calculation
             const cetTime = new Date(now.toLocaleString("en-US", {timeZone: "Europe/Paris"}));
             const serverDate = new Date(cetTime.getTime() - (3 * 60 * 60 * 1000));
             
@@ -37,13 +39,14 @@ window.warRoom = function() {
                 this.phaseAction = "Copper war starts Jan 5th, 03:00 CET";
                 const diff = this.seasonStart - cetTime;
                 this.phaseCountdown = `${Math.floor(diff/864e5)}d : ${Math.floor((diff%864e5)/36e5)}h : ${Math.floor((diff%36e5)/6e4)}m`;
-                this.week = 1;
             } else {
                 const diffDays = Math.floor((cetTime - this.seasonStart) / 864e5);
                 this.week = Math.max(1, Math.min(4, Math.floor(diffDays / 7) + 1));
                 const day = cetTime.getDay();
                 const hr = cetTime.getHours();
-                const roundNum = ((this.week - 1) * 2) + ((day === 0 || day >= 4) ? 2 : 1);
+                // Mon-Wed (1,2,3) = Round 1 of the week | Thu-Sun (4,5,6,0) = Round 2 of the week
+                const roundOffset = (day >= 1 && day <= 3) ? 1 : 2;
+                const roundNum = ((this.week - 1) * 2) + roundOffset;
                 this.currentRoundText = `Round ${roundNum}`;
 
                 let ms = [
@@ -62,6 +65,7 @@ window.warRoom = function() {
                 let next = ms.find(m => (day < m.d) || (day === m.d && hr < m.h)) || ms[0];
                 const curr = [...ms].reverse().find(m => (day > m.d) || (day === m.d && hr >= m.h)) || ms[ms.length-1];
                 this.currentPhase = curr.n; this.phaseAction = curr.a;
+                
                 let target = new Date(cetTime);
                 target.setDate(target.getDate() + (next.d - day + (next.d < day || (next.d === day && next.h <= hr) ? 7 : 0)));
                 target.setHours(next.h, 0, 0, 0);
@@ -70,6 +74,7 @@ window.warRoom = function() {
             }
         },
 
+        // --- DATA SYNC ---
         async fetchData() {
             this.loading = true;
             const cb = `&t=${Date.now()}`;
@@ -77,23 +82,54 @@ window.warRoom = function() {
             const scrub = (d) => d.map(r => { let c = {}; Object.keys(r).forEach(k => c[k.trim().toLowerCase().replace(/\s+/g,'')] = r[k] ? String(r[k]).trim() : ''); return c; });
             const fetchCSV = async (gid) => { try { const r = await fetch(base + gid + cb); const t = await r.text(); return scrub(Papa.parse(t, {header:true, skipEmptyLines:true}).data); } catch (e) { return []; } };
             const [rawA, rawP, rawC, rawH] = await Promise.all([fetchCSV('0'), fetchCSV('1007829300'), fetchCSV('1860064624'), fetchCSV('1091133615')]);
-            const mapF = (f) => { if (!f) return 'Unassigned'; const l = f.toLowerCase(); if (l.includes('kage') || l.includes('red')) return 'Kage no Sato'; if (l.includes('koubu') || l.includes('blue')) return 'Koubutai'; return 'Unassigned'; };
             
+            const mapF = (f) => { 
+                if (!f) return 'Unassigned'; 
+                const l = f.toLowerCase();
+                if (l.includes('kage') || l.includes('red')) return 'Kage no Sato';
+                if (l.includes('koubu') || l.includes('blue')) return 'Koubutai';
+                return 'Unassigned';
+            };
+
             this.alliances = rawA.map(r => ({ faction: mapF(r.faction), server: r.server, tag: r.tag, name: r.alliancename, power: Number((r.totalpower||'').replace(/\D/g,'')) || 0 })).filter(r => r.tag);
             this.players = rawP.map(r => ({ tag: r.tag, name: r.playername, thp: Number((r.thp||'').replace(/\D/g,'')) || 0 })).filter(r => r.name);
             this.cities = rawC; this.history = rawH;
             this.loading = false;
-            this.debugStatus = `OK: ${this.alliances.length} Alliances`;
         },
 
-        // --- THE ENGINE ---
+        // --- HOURLY RATE MATH ---
+        getObservedRate(tag) {
+            // Fix date format for browser compatibility (replace - with /)
+            const snps = this.history
+                .filter(x => (x.tag||'').toLowerCase() === tag.toLowerCase())
+                .map(x => ({ ...x, dateObj: new Date(x.timestamp.replace(/-/g, "/")) }))
+                .sort((a,b) => b.dateObj - a.dateObj);
+            
+            if (snps.length < 2) return 0;
+            
+            const latest = snps[0];
+            const previous = snps[1];
+            
+            const cDiff = Number(latest.totalcopper.replace(/\D/g,'')) - Number(previous.totalcopper.replace(/\D/g,''));
+            const hDiff = (latest.dateObj - previous.dateObj) / 3600000;
+            
+            return hDiff > 0.05 ? Math.round(cDiff / hDiff) : 0;
+        },
+
         get factionData() {
             return this.alliances.map(a => {
-                const snps = this.history.filter(x => (x.tag||'').toLowerCase() === a.tag.toLowerCase()).sort((a,b) => new Date(b.timestamp) - new Date(a.timestamp));
-                const lastStash = snps[0] ? Number(snps[0].totalcopper.replace(/\D/g,'')) : 0;
-                const lastTime = snps[0] ? new Date(snps[0].timestamp) : new Date();
-                const rate = this.getPassiveRate(a.tag);
+                const snps = this.history
+                    .filter(x => (x.tag||'').toLowerCase() === a.tag.toLowerCase())
+                    .map(x => ({ ...x, dateObj: new Date(x.timestamp.replace(/-/g, "/")) }))
+                    .sort((a,b) => b.dateObj - a.dateObj);
+                
+                const lastEntry = snps[0];
+                const lastStash = lastEntry ? Number(lastEntry.totalcopper.replace(/\D/g,'')) : 0;
+                const lastTime = lastEntry ? lastEntry.dateObj : new Date();
+                
+                const rate = this.getObservedRate(a.tag);
                 const hoursPassed = Math.max(0, (new Date() - lastTime) / 3600000);
+                
                 return { ...a, stash: lastStash + (rate * hoursPassed), rate: rate };
             });
         },
@@ -112,9 +148,9 @@ window.warRoom = function() {
             return groups;
         },
 
+        // --- UI HELPERS ---
         get knsGroups() { return this.getGroupedFaction('Kage no Sato'); },
         get kbtGroups() { return this.getGroupedFaction('Koubutai'); },
-
         getGroupedFaction(fName) {
             const sorted = this.factionData.filter(a => a.faction === fName).sort((a,b) => b.stash - a.stash);
             const groups = [];
@@ -127,7 +163,6 @@ window.warRoom = function() {
             if (sorted.length > 30) groups.push({ id: (this.week===1?4:(this.week===2?6:11)), label: "Rank 31-100", alliances: sorted.slice(30, 100) });
             return groups;
         },
-
         get filteredRefList() {
             const list = [...this.alliances].sort((a,b) => a.name.localeCompare(b.name));
             return this.refSearch ? list.filter(a => (a.tag||'').toLowerCase().includes(this.refSearch.toLowerCase())) : list;
