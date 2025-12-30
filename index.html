@@ -42,7 +42,7 @@
         <aside :class="mobileMenu ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'" 
                class="fixed lg:relative w-80 h-full glass p-6 flex flex-col gap-6 shadow-2xl border-r border-slate-800 z-[110] transition-transform duration-300 scrollbar-hide overflow-y-auto text-left">
             
-            <!-- TACTICAL TIMER -->
+            <!-- TIMER -->
             <div class="p-4 bg-slate-900 border border-amber-500/20 rounded-2xl shadow-lg">
                 <div class="flex justify-between items-center mb-1 text-[10px] font-black text-amber-500 uppercase italic">
                     <span x-text="currentRoundText"></span>
@@ -83,11 +83,11 @@
             </div>
         </aside>
 
-        <!-- MAIN WINDOW -->
+        <!-- MAIN -->
         <main class="flex-1 overflow-y-auto p-4 lg:p-8 scrollbar-hide">
             
             <template x-if="loading">
-                <div class="flex items-center justify-center h-full text-cyan-500 font-mono animate-pulse uppercase italic tracking-widest text-xl font-black">Syncing_Tactical_Intel...</div>
+                <div class="flex items-center justify-center h-full text-cyan-500 font-mono animate-pulse uppercase italic tracking-widest text-xl font-black">Syncing_Forward_Intel...</div>
             </template>
 
             <div x-show="!loading" x-cloak>
@@ -163,7 +163,7 @@
                                                 <div class="warehouse-box"><div class="text-[7px] text-slate-500 uppercase font-black mb-1">WH (3%)</div><div class="text-[9px] font-black text-amber-500" x-text="formatNum(a.stash * 0.03)"></div></div>
                                                 <div class="warehouse-box"><div class="text-[7px] text-slate-500 uppercase font-black mb-1">WH (3%)</div><div class="text-[9px] font-black text-amber-500" x-text="formatNum(a.stash * 0.03)"></div></div>
                                                 <div class="warehouse-box"><div class="text-[7px] text-slate-500 uppercase font-black mb-1">WH (3%)</div><div class="text-[9px] font-black text-amber-500" x-text="formatNum(a.stash * 0.03)"></div></div>
-                                                <div class="bg-amber-500/10 border border-amber-500/30 rounded-lg p-1 text-center"><div class="text-[7px] text-amber-500 font-black uppercase text-center text-center text-center text-center text-center">Center (6%)</div><div class="text-[9px] font-black text-white" x-text="formatNum(a.stash * 0.06)"></div></div>
+                                                <div class="bg-amber-500/10 border border-amber-500/30 rounded-lg p-1 text-center"><div class="text-[7px] text-amber-500 font-black uppercase text-center mb-1">Center (6%)</div><div class="text-[9px] font-black text-white" x-text="formatNum(a.stash * 0.06)"></div></div>
                                             </div>
                                         </div>
                                     </template>
@@ -173,7 +173,7 @@
                     </div>
                 </div>
 
-                <!-- VIEW 2: SERVER THP (SPLIT) -->
+                <!-- VIEW 2: SERVER THP -->
                 <div x-show="tab === 'forces'" x-cloak>
                     <div class="flex items-center mb-6">
                         <h3 class="text-4xl font-black uppercase italic text-emerald-500 tracking-widest underline">Server THP</h3>
@@ -268,7 +268,7 @@
                 <div x-show="tab === 'admin'" x-cloak class="max-w-2xl mx-auto mt-10 pb-20">
                     <div x-show="!authenticated" class="glass p-12 rounded-3xl text-center border border-slate-800">
                         <h2 class="text-2xl font-black mb-2 uppercase tracking-widest italic text-red-500 leading-none underline text-center">Terminal Authentication</h2>
-                        <p class="text-xs text-slate-500 mb-6">Ask Mrxim of MAD1 on 958 for a password if you would like to help set up the actual city for each alliance.</p>
+                        <p class="text-xs text-slate-500 mb-6 uppercase">Ask Mrxim of MAD1 on 958 for a password if you would like to help set up the actual city for each alliance.</p>
                         <input type="password" x-model="passInput" placeholder="Password" class="w-full bg-slate-950 border border-slate-800 p-4 rounded-2xl mb-4 text-center text-white outline-none focus:ring-2 focus:ring-red-500">
                         <button @click="login()" class="w-full py-4 bg-red-600 rounded-2xl font-black uppercase tracking-widest transition-all shadow-lg active:scale-95">Authenticate</button>
                     </div>
