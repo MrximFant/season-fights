@@ -74,14 +74,30 @@ window.warRoom = function() {
             }
         },
 
-        // --- DATA SYNC ---
+        // --- DATA SYNC (FILE BASED) ---
         async fetchData() {
             this.loading = true;
-            const cb = `&t=${Date.now()}`;
-            const base = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRFfdDzrMXgqdjSZrSI4YcbDvFoYlrri87EEhG2I9aecW2xcuuLFcl-sxEVjvY1LTdPkXjKSzlwoNQd/pub?output=csv&gid=';
+            const cb = `?t=${Date.now()}`;
             const scrub = (d) => d.map(r => { let c = {}; Object.keys(r).forEach(k => c[k.trim().toLowerCase().replace(/\s+/g,'')] = r[k] ? String(r[k]).trim() : ''); return c; });
-            const fetchCSV = async (gid) => { try { const r = await fetch(base + gid + cb); const t = await r.text(); return scrub(Papa.parse(t, {header:true, skipEmptyLines:true}).data); } catch (e) { return []; } };
-            const [rawA, rawP, rawC, rawH] = await Promise.all([fetchCSV('0'), fetchCSV('1007829300'), fetchCSV('1860064624'), fetchCSV('1091133615')]);
+            
+            const fetchCSV = async (file) => { 
+                try { 
+                    const r = await fetch(file + cb); 
+                    if (!r.ok) throw new Error("404");
+                    const t = await r.text(); 
+                    return scrub(Papa.parse(t, {header:true, skipEmptyLines:true}).data); 
+                } catch (e) { 
+                    console.log("Missing file: " + file);
+                    return []; 
+                } 
+            };
+
+            const [rawA, rawP, rawC, rawH] = await Promise.all([
+                fetchCSV('data/alliances.csv'), 
+                fetchCSV('data/players.csv'), 
+                fetchCSV('data/cities.csv'), 
+                fetchCSV('data/history.csv')
+            ]);
             
             const mapF = (f) => { 
                 if (!f) return 'Unassigned'; 
@@ -99,7 +115,6 @@ window.warRoom = function() {
 
         // --- HOURLY RATE MATH ---
         getObservedRate(tag) {
-            // Fix date format for browser compatibility (replace - with /)
             const snps = this.history
                 .filter(x => (x.tag||'').toLowerCase() === tag.toLowerCase())
                 .map(x => ({ ...x, dateObj: new Date(x.timestamp.replace(/-/g, "/")) }))
